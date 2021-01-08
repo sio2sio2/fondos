@@ -591,6 +591,24 @@ CREATE VIEW IF NOT EXISTS Evolucion AS
          GROUP BY C.isin, S.periodo, S.inf, S.sup HAVING C.fecha = MAX(C.fecha)
          ORDER BY C.isin, C.fecha
       )
+   -- Añade un registro inicial a cada inversión particular
+   -- con la fecha inicial de la inversión y con un rembolso igual al coste.
+   -- PROBLEMA: puede haber dos registros para la fecha de inversión.
+   SELECT P.periodo,
+          H.desinversion,
+          H.suscripcionID,
+          H.orden,
+          H.coste,
+          H.fecha AS fecha_c,
+          H.fecha_v,
+          H.participaciones,
+          C.isin,
+          H.fecha,
+          H.coste AS rembolso
+   FROM Periodo P, Historial H JOIN tCuenta C USING(cuentaID)
+   WHERE H.fecha_i = H.fecha
+      UNION ALL
+   -- La evolución propiamente
    SELECT T.periodo,
           H.desinversion,
           H.suscripcionID,
@@ -610,4 +628,5 @@ CREATE VIEW IF NOT EXISTS Evolucion AS
       UNION ALL
    -- Registros que definen cuál ha sido la temporización de fechas.
    SELECT periodo, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, sup AS fecha, NULL
-   FROM Secuencia;
+   FROM Secuencia
+   ORDER BY desinversion, orden, fecha;

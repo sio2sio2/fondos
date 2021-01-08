@@ -34,8 +34,8 @@ invertirlo de forma conjunta. Las aspectos más destacados pueden resumirse en:
   diariamente el valor de la participación retrayendole la comisión de gestión.
   En consecuencia, en ausencia de comisiones por las operaciones de compra y
   venta, siempre será posible conocer el coste por una compra o el rembolso por
-  una venta utilizando el número de operaciones, la fecha de la operación y el
-  valor de cotización de ese día.
+  una venta utilizando el número de participaciones, la fecha de la operación y
+  el valor de cotización de ese día.
 
 - Para llever a cabo una inversión se compran participaciones de un fondo y para
   recuperar la inversión se venden. Obviamente, al vender deben pagarse impuestos
@@ -63,7 +63,7 @@ invertirlo de forma conjunta. Las aspectos más destacados pueden resumirse en:
     como sucede en las compras hechas con dinero nuevo.
   + El capital de inversión que, por tanto, no será el capital de adquisión.
 
-- Para almacenar las participaciones adquiridas de un fondo,
+- Para almacenar las participaciones de un fondo adquiridas por un cliente,
   las comercializadoras abren una *cuenta partícipe*. En consecuencia, por cada
   fondo habrá en cada comercializadora una cuenta partícipe distinta.
 
@@ -105,7 +105,7 @@ tOrdenVenta(orden, fecha, comentario)
 tVenta(ventaID, suscripcionID[tSuscripcion], participaciones, reintegro)
 ```
 
-![Diagrama Entidad/Relación](images/E-R.png)
+![Diagrama Entidad/Relación](files/E-R.png)
 
 + **tScraper**: Relación de *scrapers* capaces de obtener cotizaciones de fondos. La
   programación de cada *scraper* es responsabilidad de la aplicación externa que

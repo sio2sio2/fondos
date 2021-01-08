@@ -13,7 +13,8 @@ from fondos.utils.backend.errors import Error
 from fondos.utils.iniargparse import IniArgumentParser
 from argparse import Action
 from fondos.backend import SQLiteConector, Fondo, Cuenta, Cotizacion, \
-        Suscripcion, Venta, Cartera, Historial, Traspaso, Plusvalia
+        Suscripcion, Venta, Cartera, Historial, Traspaso, Plusvalia, Evolucion
+import matplotlib.pyplot as plt
 
 logger = Logger().get_logger(__name__)
 
@@ -81,6 +82,9 @@ def parse_args():
                         "comercializadoras")
     vgroup.add_argument("-p", "--plusvalia", action="store_true",
                         help="Muestra las plusvalias obtenidas")
+    vgroup.add_argument("-g", "--grafico", action="store_true",
+                        help="Muestra gráficamente la evolución de las "
+                        "inversiones")
 
     vgroup = parser.add_mutually_exclusive_group()
     vgroup.add_argument("-f", "--fondo", action="store_true",
@@ -444,6 +448,46 @@ class Interfaz:
                           "Plusv (%)", "TAE (%)"],
                          [15, 9, 10, 10, 10, 9, 10, 10, 9, 10], inv)
 
+    def mostrar_evolucion(self):
+        db = config.db
+        with db.session:
+            puntos = tuple(db.Evolucion.get("semanas", abcisas=False))
+
+        inversiones, minimo, maximo = {}, datetime.now()\
+            .strftime('%Y-%m-%d'), '1900-01-01'
+
+        graficos = []
+
+        for p in puntos:
+            if p.desinversionID is None:
+                continue
+
+            minimo, maximo = min(minimo, p.fecha), max(maximo, p.fecha)
+
+            inversiones.setdefault(f'{p.desinversionID}/{p.orden}', [])\
+                .append((datetime.strptime(p.fecha, '%Y-%m-%d').timestamp(),
+                         p.rembolso/p.coste))
+
+        for tag, curva in inversiones.items():
+            graficos.append({
+                "puntos": tuple(zip(*curva)),
+                "titulo":  f'Inversión {tag}'
+            })
+
+        minimo = datetime.strptime(minimo, '%Y-%m-%d').year
+        maximo = datetime.strptime(maximo, '%Y-%m-%d').year
+
+        aa = tuple(range(minimo + 1, maximo + 1))
+
+        xticks = [datetime.strptime(f'{y}-01-01', '%Y-%m-%d').timestamp()
+                  for y in aa]
+
+        for g in graficos:
+            plt.plot(*g["puntos"])
+
+        plt.xticks(xticks, labels=aa)
+        plt.grid(True)
+        plt.show()
 
 def main():
     "Programa principal"
@@ -456,7 +500,7 @@ def main():
                                     dump=registrar(),
                                     schema=agrega_path("SQL/esquema.sql"))
     db.attach((Fondo, Cuenta, Cotizacion, Suscripcion,
-               Venta, Cartera, Traspaso, Historial, Plusvalia))
+               Venta, Cartera, Traspaso, Historial, Plusvalia, Evolucion))
 
     if config.fondo:
         with db.session:
@@ -518,7 +562,10 @@ def main():
         interfaz.mostrar_cartera()
     elif config.plusvalia:
         interfaz.mostrar_plusvalias()
+    elif config.grafico:
+        interfaz.mostrar_evolucion()
 
 
 if __name__ == '__main__':
     main()
+
