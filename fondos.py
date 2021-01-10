@@ -411,7 +411,8 @@ class Interfaz:
                     dias = (p.fecha_v - p.fecha_i).days
 
                 inv.append((p.orden == 0,  # True si no se ha vendido la inv.
-                            [(p.suscripcion.cuenta.fondo.alias, False),
+                            [(f'{p.desinversion}/{p.orden}', False),
+                             (p.suscripcion.cuenta.fondo.alias, False),
                              (p.suscripcion.cuenta.comercializadora, False),
                              (p.capital, False),
                              (p.fecha_i, False),
@@ -432,7 +433,8 @@ class Interfaz:
                 color_ganancia = False
 
             inv.append((True,
-                        [("Total", False),
+                        [("", False),
+                         ("Total", False),
                          (str(year), False),
                          (capital, False),
                          ("", False),
@@ -443,10 +445,10 @@ class Interfaz:
                          (plus/capital*100, color_ganancia),
                          ("", False)]))
 
-        self.crear_tabla(["Fondo", "Banco", "Inversión", "F. compra",
+        self.crear_tabla(["ID", "Fondo", "Banco", "Inversión", "F. compra",
                           "F: venta", "Partic.", "Rembolso", "Plusvalia",
-                          "Plusv (%)", "TAE (%)"],
-                         [15, 9, 10, 10, 10, 9, 10, 10, 9, 10], inv)
+                          "Plu (%)", "TAE (%)"],
+                         [4, 13, 9, 10, 10, 10, 8, 10, 10, 7, 10], inv)
 
     def mostrar_evolucion(self):
         db = config.db
@@ -466,12 +468,12 @@ class Interfaz:
 
             inversiones.setdefault(f'{p.desinversionID}/{p.orden}', [])\
                 .append((datetime.strptime(p.fecha, '%Y-%m-%d').timestamp(),
-                         p.rembolso/p.coste))
+                         p.rembolso/p.coste - 1))
 
         for tag, curva in inversiones.items():
             graficos.append({
-                "puntos": tuple(zip(*curva)),
-                "titulo":  f'Inversión {tag}'
+                "puntos": curva,
+                "titulo":  f'{tag}'
             })
 
         minimo = datetime.strptime(minimo, '%Y-%m-%d').year
@@ -483,7 +485,8 @@ class Interfaz:
                   for y in aa]
 
         for g in graficos:
-            plt.plot(*g["puntos"])
+            plt.plot(*tuple(zip(*g["puntos"])))
+            plt.text(*g["puntos"][-1], g["titulo"])
 
         plt.xticks(xticks, labels=aa)
         plt.grid(True)
