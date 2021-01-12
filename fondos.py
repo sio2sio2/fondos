@@ -103,6 +103,11 @@ def parse_args():
     vgroup.add_argument("-l", "--valor-liquidativo", action="store_true",
                         help="Agrega manualmente valor liquidativo: "
                              "ISIN|fecha|VL")
+    vgroup.add_argument("-L", "--cotizaciones", action="store_true",
+                        help="Extrae con el scraper cotizaciones entre una "
+                             "fecha inicial y una final. Si la final no se "
+                             "expresa, se obtiene una sóla cotización: "
+                             "ISIN|fecha_i|fecha_")
 
     parser.parse_args(namespace=config)
 
@@ -227,13 +232,28 @@ def parse_line(line, tipo, sep="|"):
     def cotizacion(cuenta, fecha, vl=None):
         return (cuenta, fecha, vl)
 
+    def cotizaciones(fondo, fecha_i, fecha_f=None):
+        if not isinstance(fecha_i, date):
+            raise TypeError('Fecha inicial incorrecta')
+
+        try:
+            delta = fecha_f and (fecha_f - fecha_i).days
+        except (AttributeError, TypeError):
+            raise TypeError('Fecha final incorrecta')
+
+        if (delta or 0) < 0:
+            raise ValueError('Fecha final anterior a la inicial')
+
+        return (fondo, fecha_f or fecha_i, delta)
+
     ftipo = {
         "fondo": fondo,
         "cuenta": cuenta,
         "suscripcion": suscripcion,
         "rembolso": rembolso,
         "traspaso": traspaso,
-        "valor_liquidativo": cotizacion
+        "valor_liquidativo": cotizacion,
+        "cotizaciones": cotizaciones
     }[tipo]
 
     return ftipo(*map(convert, line.split(sep)))
@@ -555,6 +575,31 @@ def main():
                     continue
                 reg = parse_line(line, tipo="valor_liquidativo")
                 db.Cotizacion(*reg).insert()
+    elif config.cotizaciones:
+        with db.session:
+            for line in sys.stdin:
+                if line.startswith("#") or not line.strip():
+                    continue
+                try:
+                    reg = parse_line(line, tipo="cotizaciones")
+                except Exception as err:
+                    logger.error(f'{err}: {line}')
+                    continue
+                try:
+                    fondo = next(db.Fondo.get(isin=reg[0]))
+                except StopIteration:
+                    logger.error(f'{reg[0]}: Fondo desconocido')
+                    continue
+                s = scraper(fondo.scraper, fondo.scraper_data)
+                s.connect(reg[1], reg[2])
+                logger.info(f'Inscribiendo cotizaciones de {fondo.alias}')
+                for uc, vl in s.cotizacion:
+                    cot = db.Cotizacion(fondo.isin, uc, vl)
+                    try:
+                        cot.insert()
+                    except Error:
+                        logger.warning(f"'{fondo.alias}' [{fondo.isin}] ya "
+                                       f"tiene la cotización de {uc}")
 
     if config.extract:
         extraer_cotizaciones()
