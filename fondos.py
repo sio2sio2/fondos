@@ -167,7 +167,7 @@ def extraer_cotizaciones(fecha=None):
                              f"{fondo.alias}")
                 continue
 
-            cot = db.Cotizacion(fondo.isin, uc, vl)
+            cot = db.Cotizacion(fondo.isin, uc, round(vl, 4))
             try:
                 cot.insert()
             except Error as e:
@@ -594,7 +594,7 @@ def main():
                 s.connect(reg[1], reg[2])
                 logger.info(f'Inscribiendo cotizaciones de {fondo.alias}')
                 for uc, vl in s.cotizacion:
-                    cot = db.Cotizacion(fondo.isin, uc, vl)
+                    cot = db.Cotizacion(fondo.isin, uc, round(vl, 4))
                     try:
                         cot.insert()
                     except Error:

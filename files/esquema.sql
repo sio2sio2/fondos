@@ -564,6 +564,7 @@ FOR EACH ROW
       FROM NuevaOrden, VentaDesagregada;
    END;
 
+DROP VIEW IF EXISTS Evolucion;
 -- Genera la evolución temporal del beneficio de una suscripción
 -- (las que se listan en la vista Plusvalía) en periodos de "meses"
 -- o "semanas". La salisa es útil para generar gráfico de rentabilidad.
@@ -592,8 +593,8 @@ CREATE VIEW IF NOT EXISTS Evolucion AS
          ORDER BY C.isin, C.fecha
       )
    -- Añade un registro inicial a cada inversión particular
-   -- con la fecha inicial de la inversión y con un rembolso igual al coste.
-   -- PROBLEMA: puede haber dos registros para la fecha de inversión.
+   -- del día en que se hizo, en caso que ese día no esté incluido
+   -- en los de la temporizsación.
    SELECT P.periodo,
           H.desinversion,
           H.suscripcionID,
@@ -606,7 +607,8 @@ CREATE VIEW IF NOT EXISTS Evolucion AS
           H.fecha,
           H.coste AS rembolso
    FROM Periodo P, Historial H JOIN tCuenta C USING(cuentaID)
-   WHERE H.fecha_i = H.fecha
+      LEFT JOIN Temporizacion T USING(isin, periodo, fecha)
+   WHERE H.fecha_i = H.fecha AND T.fecha IS NULL
       UNION ALL
    -- La evolución propiamente
    SELECT T.periodo,
