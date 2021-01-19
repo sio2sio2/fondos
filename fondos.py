@@ -85,6 +85,10 @@ def parse_args():
     vgroup.add_argument("-g", "--grafico", action="store_true",
                         help="Muestra gráficamente la evolución de las "
                         "inversiones")
+    vgroup.add_argument("-H", "--history", action="store",
+                        help="Muestra las últimas cotizaciones de un fondo "
+                        "(ISIN:DIAS). Si no se especifica DÍAS, se "
+                        "sobreentienden 10")
 
     vgroup = parser.add_mutually_exclusive_group()
     vgroup.add_argument("-f", "--fondo", action="store_true",
@@ -512,6 +516,48 @@ class Interfaz:
         plt.grid(True)
         plt.show()
 
+    def mostrar_cotizaciones(self, arg):
+        try:
+            isin, dias = map(str.strip, arg.split(':'))
+        except ValueError:
+            isin, dias = arg.strip(), 10
+        else:
+            try:
+                dias = int(dias)
+            except ValueError:
+                logger.error(f'Los días de "{arg}" no son un entero')
+                exit(1)
+
+        db = config.db
+
+        with db.session:
+            try:
+                fondo = next(db.Fondo.get(isin=isin))
+            except StopIteration:
+                logger.error(f'{isin}: Fondo desconocido')
+                exit(1)
+
+            # +1 para que podamos colorear la primera cotización
+            cotizaciones = list(db.Cotizacion.get(isin, limit=dias + 1))
+
+        if not cotizaciones:
+            logger.warn(f"No hay cotizaciones de '{fondo.alias}'")
+            return
+
+        if len(cotizaciones) <= dias:
+            cotizaciones.append(db.Cotizacion(isin, '1900-01-01',
+                                              cotizaciones[-1].vl))
+
+        cotizaciones = [(True, ((d.fecha, False),
+                         (d.vl, "-" if round(d.vl/c.vl, 5) < 1 else "+"),
+                         (f'{(d.vl/c.vl - 1)*100:.2f}%',
+                          "-" if round(d.vl/c.vl, 5) < 1 else "+")))
+                        for d, c in zip(cotizaciones, cotizaciones[1:])]
+
+        print(f"Fondo: {fondo.alias} -- {isin}")
+        self.crear_tabla(["Fecha", "Valor", "Var."],
+                         [10, 7, 6], cotizaciones)
+
 def main():
     "Programa principal"
     parse_args()
@@ -612,6 +658,8 @@ def main():
         interfaz.mostrar_plusvalias()
     elif config.grafico:
         interfaz.mostrar_evolucion()
+    elif config.history:
+        interfaz.mostrar_cotizaciones(config.history)
 
 
 if __name__ == '__main__':
