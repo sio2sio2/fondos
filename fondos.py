@@ -401,11 +401,16 @@ class Interfaz:
                              (cartera.vl, color_vl),
                              (ganancia, color_ganancia)]))
 
-            inv.sort(key=lambda e: e[1][2])  # Ordenamos por riesgo
+        # Calculamos qué porcentaje del total representa cada inversión
+        total = sum(i[4][0] + i[8][0] for _, i in inv)  # capital + ganancia
+        for _, i in inv:
+            i.insert(5, (round((i[4][0] + i[8][0])/total*100, 2), False))
 
-            self.crear_tabla(["Fondo", "ISIN", "R", "Banco", "Inversión",
-                              "Fecha", "Part.", "VL", "Ganancia"],
-                             [15, 12, 1, 13, 9, 10, 9, 9, 9], inv)
+        inv.sort(key=lambda e: e[1][2])  # Ordenamos por riesgo
+
+        self.crear_tabla(["Fondo", "ISIN", "R", "Banco", "Inversión",
+                          "%Cartera", "Fecha", "Part.", "VL", "Ganancia"],
+                         [15, 12, 1, 13, 9, 8, 10, 9, 9, 9], inv)
 
     def mostrar_plusvalias(self):
         db = config.db
