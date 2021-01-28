@@ -89,6 +89,10 @@ def parse_args():
                         help="Muestra las últimas cotizaciones de un fondo "
                         "(ISIN:DIAS). Si no se especifica DÍAS, se "
                         "sobreentienden 10")
+    vgroup.add_argument("-I", "--inversiones_H", action="store",
+                        help="Muestra la composición de la cartera desde o "
+                             "hasta la fecha indicada: AAAA-MM-DDi, o bien "
+                             "AAAA-MM-DD.")
 
     vgroup = parser.add_mutually_exclusive_group()
     vgroup.add_argument("-f", "--fondo", action="store_true",
@@ -342,11 +346,18 @@ class Interfaz:
             print(linea(campos, colores))
             print(sep)
 
-    def mostrar_cartera(self):
+    def mostrar_cartera(self, arg=None):
+        if not arg:
+            fi = ff = None
+        elif arg[-1] == "i":
+            fi, ff = arg[0:-1], None
+        else:
+            ff, fi = arg[0:-1], None
+
         db = config.db
         with db.session:
             inv = []
-            for cartera in db.Cartera.get(viva=True):
+            for cartera in db.Cartera.get(fi=fi, ff=ff, viva=True):
                 try:
                     ganancia = (cartera.participaciones*cartera.vl -
                                 cartera.capital)
@@ -406,7 +417,7 @@ class Interfaz:
         for _, i in inv:
             i.insert(5, (round((i[4][0] + i[8][0])/total*100, 2), False))
 
-        inv.sort(key=lambda e: e[1][2])  # Ordenamos por riesgo
+        inv.sort(key=lambda e: e[1][2][0] or 0)  # Ordenamos por riesgo
 
         self.crear_tabla(["Fondo", "ISIN", "R", "Banco", "Inversión",
                           "%Cartera", "Fecha", "Part.", "VL", "Ganancia"],
@@ -563,6 +574,7 @@ class Interfaz:
         self.crear_tabla(["Fecha", "Valor", "Var."],
                          [10, 7, 6], cotizaciones)
 
+
 def main():
     "Programa principal"
     parse_args()
@@ -665,6 +677,8 @@ def main():
         interfaz.mostrar_evolucion()
     elif config.history:
         interfaz.mostrar_cotizaciones(config.history)
+    elif config.inversiones_H:
+        interfaz.mostrar_cartera(config.inversiones_H)
 
 
 if __name__ == '__main__':

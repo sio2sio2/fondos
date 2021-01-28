@@ -419,10 +419,12 @@ class Cartera(Register):
     def get(cls, *,
             fondo: Union[str, Fondo] = None,
             comercializadora: str = None,
+            fi: date = None,
+            ff: date = None,
             viva: bool = None) -> Iterator[Cartera]:
         if isinstance(fondo, Fondo):
             fondo = fondo.isin
-        return cls.db.get_cartera(fondo=fondo,
+        return cls.db.get_cartera(fondo=fondo, fecha_i=fi, fecha_f=ff,
                                   comercializadora=comercializadora, viva=viva)
 
     @property
@@ -549,3 +551,54 @@ class Plusvalia(Register):
     def rembolsada(self):
         """Indica si la plusvalía es real, o sea, si ya se desinvirtió"""
         return orden != 0
+
+
+class Evolucion(Register):
+    """Modela la evolucion de las sucripciones"""
+    _fields = ("periodo desinversionID suscripcionID orden coste fecha_c "
+               "fecha_v participaciones isin fecha rembolso")
+
+    _desinversion: Suscripcion
+    _suscripcion: Suscripcion
+    _fondo: Fondo
+
+    @classmethod
+    def get(cls, periodo, *,
+            abcisas: bool = True,
+            desinversion: Union[None, bool, int, Suscripcion] = None):
+        """Obtiene la evolución temporal de una inversión"""
+
+        desinversion = getattr(desinversion, "id", desinversion)
+
+        return cls.db.get_evolucion(periodo, abcisas=abcisas,
+                                    desinversion=desinversion)
+
+    @property
+    def desinversion(self) -> Optional[Suscripcion]:
+        try:
+            return self._desinversion
+        except AttributeError:
+            suscr = self.db.Suscripcion
+            self._desinversion = next(suscr.get(id=self.desinversionID), None)
+
+            return self._desinversion
+
+    @property
+    def suscripcion(self) -> Optional[Suscripcion]:
+        try:
+            return self._suscripcion
+        except AttributeError:
+            suscr = self.db.Suscripcion
+            self._suscripcion = next(suscr.get(id=self.suscripcionID), None)
+
+            return self._suscripcion
+
+    @property
+    def fondo(self) -> Optional[Fondo]:
+        try:
+            return self._fondo
+        except AttributeError:
+            suscr = self.db.Fondo
+            self._fondo = next(suscr.get(id=self.isin), None)
+
+            return self._fondo

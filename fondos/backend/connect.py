@@ -20,7 +20,7 @@ tuplas crudas.
 
 from __future__ import annotations
 import sqlite3
-from typing import Iterable, Iterator, List, Tuple, Optional, Any
+from typing import Iterable, Iterator, List, Tuple, Any, Union
 from ..utils.config import Logger
 from ..utils.backend.connect import ConnectorWithCursor, cursor
 from ..utils.backend.errors import DatabaseError, DataError, IntegrityError
@@ -420,6 +420,8 @@ class SQLiteConector(ConnectorWithCursor):
     def get_cartera(self, *,
                     fondo: str = None,
                     comercializadora: str = None,
+                    fecha_i: date = None,
+                    fecha_f: date = None,
                     viva: bool = None) -> Iterator[Tuple]:
         """Devuelve las suscripciones agrupadas por cuenta y con expresión
            del VL más reciente.
@@ -430,8 +432,18 @@ class SQLiteConector(ConnectorWithCursor):
            :param comercializadora: Numbre de la comercializadora de la cuenta.
            :param viva: Si `True``, la cuenta tiene participaciones.
         """
-        sql, cond = "SELECT * FROM Inversion", []
+        cond = []
         params: List[Any] = []
+
+        if not fecha_i and not fecha_f:
+            sql = "SELECT * FROM Inversion"
+        else:
+            sql = """
+                WITH FechaInicial AS (SELECT ?),
+                     FechaFinal AS (SELECT ?)
+                SELECT * FROM CarteraHistorica
+            """
+            params.extend((fecha_i, fecha_f))
 
         if fondo:
             cond.append("isin = ?")
@@ -540,3 +552,47 @@ class SQLiteConector(ConnectorWithCursor):
         self.execute(f'{sql} {scond}', params)
         logger.debug('Extraída la información fiscal requerida')
         yield from self
+
+    @cursor
+    def get_evolucion(self, periodo: str, *,
+                      abcisas: bool = True,
+                      desinversion: Union[None, bool, int] = None):
+        """
+        Devuelve la evolución temporal de cada inversión individual desde que
+        se suscribieron con dinero nuevo.
+        :param periodo: Periodo temporal de separación entre los distintos
+            valores.
+        :param abcisas: Define si se quieren obtener valores para
+            las ordenadas.
+        :param desinversion: Desinversión de la que se quiere obtener
+            la evolución. Si es :kbd:`False`, no se obtendrá ninguna, pero
+            aún podrán obtenerse los valores para el eje de abcisas.
+        """
+        sql, cond = "SELECT * FROM Evolucion", ["periodo = ?"]
+        params: List[Any] = [periodo]
+
+        ret = True
+
+        if abcisas:
+            if desinversion is not None:
+                if desinversion:
+                    cond.append( "(desinversion IS NULL OR desinversion = ?)")
+                    params.append(desinversion)
+                else:
+                    cond.append( "desinversion IS NULL")
+        elif desinversion:
+            cond.append("desinversion = ?")
+            params.append(desinversion)
+        elif desinversion is False:
+            logger.warning('Sin datos de abcisas ni selección '
+                           ' de desinversión la consulta no devuelve nada')
+            ret = False
+        else:
+            cond.append('desinversion is not NULL')
+
+        if not ret:
+            yield from ()
+        else:
+            self.execute(f'{sql} WHERE {" AND ".join(cond)}', params)
+            logger.debug('Extraída la evolución requirida')
+            yield from self

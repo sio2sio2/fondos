@@ -632,3 +632,74 @@ CREATE VIEW IF NOT EXISTS Evolucion AS
    SELECT periodo, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, sup AS fecha, NULL
    FROM Secuencia
    ORDER BY desinversion, orden, fecha;
+
+
+---
+--- CarteraHistorica permite consultar la cartera como hace Inversión.
+--  pero estableciendo fecha inicial o final de referencia o tomando ambas.
+--  Esto quiere decir que si se establece una fecha inicial, en vez de tomar
+--  el capital inicial de inversión, se toma la valoración de las inversiones
+--  en esa fecha. Establecer una fecha final, valora la inversión en tal fecha
+--  en vez de en la última disponible.
+--
+--  Para usar la vista, forzosamente, hay que indicar cuáles son las fechas
+--  mediante CTE (dejese a NULL para no indicarla):
+--
+--  WITH FechaInicial AS (SELECT '2020-05-01'),
+--       FechaFInal   AS (SELECY NULL)
+--  SELECT * FROM CarteraHistorica;
+---
+DROP VIEW IF EXISTS CarteraHistorica;
+CREATE VIEW IF NOT EXISTS CarteraHistorica AS
+   WITH
+      Progreso AS (
+         SELECT H.desinversion,
+                H.suscripcionID,
+                H.orden,
+                H.fecha AS fecha_c,
+                H.fecha_v,
+                H.participaciones,
+                C.cuentaID,
+                Co.fecha,
+                Co.vl,
+                H.coste
+         FROM Historial H
+            JOIN tCuenta C USING(cuentaID)
+            LEFT JOIN tCotizacion Co USING(isin)
+         WHERE H.fecha <= Co.fecha AND H.fecha_v >= Co.fecha
+            AND Co.fecha >= COALESCE((SELECT * FROM FechaInicial), '')
+            AND Co.fecha <= COALESCE((SELECT * FROM FechaFinal), '9999-99-99')
+      ),
+      Prev AS (
+         SELECT P2.cuentaID,
+                SUM(
+                  CASE 
+                     -- Si incluimos la compra en el periodo FechaInicial-FechaFinal
+                     -- entonces usamos el coste de compra
+                     WHEN P1.fecha_c < (SELECT * FROM FechaInicial) THEN P1.participaciones*P1.vl
+                     ELSE P1.coste
+                  END
+                ) AS capital,
+                P2.fecha,
+                P2.vl,
+                SUM(P2.participaciones) AS participaciones
+         FROM (SELECT * FROM Progreso
+               GROUP BY desinversion, orden
+               HAVING fecha = MIN(fecha)) P1
+                  JOIN
+              (SELECT * FROM Progreso
+               GROUP BY desinversion, orden
+               HAVING fecha = MAX(fecha)) P2 USING(desinversion, orden)
+         GROUP BY P2.cuentaID
+      )
+   SELECT isin,
+          cuentaID,
+          comercializadora,
+          capital,
+          fecha,
+          vl,
+          participaciones,
+          ROUND(vl*participaciones, 2) AS valoracion,
+          ROUND(1.0*vl*participaciones/capital - 1, 4) AS plusvalia
+   FROM Prev JOIN tCuenta USING(cuentaID)
+   ORDER BY isin, comercializadora;
