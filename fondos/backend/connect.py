@@ -436,7 +436,7 @@ class SQLiteConector(ConnectorWithCursor):
         params: List[Any] = []
 
         if not fecha_i and not fecha_f:
-            sql = "SELECT * FROM Inversion"
+            sql = "SELECT * FROM Cartera"
         else:
             sql = """
                 WITH FechaInicial AS (SELECT ?),

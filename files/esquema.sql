@@ -340,7 +340,7 @@ FOR EACH ROW
 --
 -- RESUMEN de suscripciones por cuenta partícipe.
 --
-CREATE VIEW IF NOT EXISTS Inversion AS
+CREATE VIEW IF NOT EXISTS Cartera AS
    WITH prev AS (
       SELECT Cu.isin AS isin,
              Cu.cuentaID,
@@ -648,6 +648,8 @@ CREATE VIEW IF NOT EXISTS Evolucion AS
 --  WITH FechaInicial AS (SELECT '2020-05-01'),
 --       FechaFInal   AS (SELECY NULL)
 --  SELECT * FROM CarteraHistorica;
+--
+--  Obviamente dejar a NULL ambas fechas, equivale consultar Cartera)
 ---
 DROP VIEW IF EXISTS CarteraHistorica;
 CREATE VIEW IF NOT EXISTS CarteraHistorica AS
