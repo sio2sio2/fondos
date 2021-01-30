@@ -265,7 +265,7 @@ Las relación de vistas relevantes es:
   Se comporta exactamente del mismo modo que ``VentaAggr`` con la salvedad de
   que, además, genera una o varias suscripciones con el rembolso.
 
-+ **Inversion**: Muestra la rentabilidad de una cuenta partícipe como la suelen
++ **Cartera**: Muestra la rentabilidad de una cuenta partícipe como la suelen
   mostrar las comercializadoras, esto es, la rentabilidad sumanda de todas sus
   suscripciones, pero sólo desde las fechas de compra de tales sucripciones. En
   consecuencia, si un grupo de participaciones procede de traspaso, no se tiene
@@ -273,7 +273,7 @@ Las relación de vistas relevantes es:
   esas participaciones:
 
   ```
-  Inversion(isin, cuentaID, comercializadora, capital, fecha, vl, participaciones, valoracion, plusvalía.)
+  Cartera(isin, cuentaID, comercializadora, capital, fecha, vl, participaciones, valoracion, plusvalía)
   ```
 
   En este caso el campo ``capital`` es la suma del coste de adquisión de las
@@ -284,6 +284,43 @@ Las relación de vistas relevantes es:
   conocer la rentabilidad. El primero es la ``valoración`` de las
   participaciones tomando como referencia ``vl`` y la ``plusvalía`` la ganancia
   (o pérdida) sobre ``capital`` en tanto por ciento.
+
++ **CarteraHistorica**: Conceptualmente presenta lo mismo que la anterior, pero
+    permite fijar la fecha inicial a partir de la cual se observan las
+    inversiones y la fecha final en que se valoran.
+
+    ```
+    CarteraHistorica(isin, cuentaID, comercializadora, capital, fecha, vl, participaciones, valoracion, plusvalía)
+    ```
+
+    Por ejemplo, supongamos una cartera muy simple constituida por una única
+    cuenta partícipe en que se compraron participaciones el primer día de 2010 y
+    el primer día de 2015. La vista _Cartera_ considerará capital la suma del
+    del dinero invertido en 2010 y el invertido en 2015; y la valoración se hará
+    con la última cotización disponible. En cambio esta vista, obliga a
+    proporcionar una fecha inicial y una final:
+
+    + Dada la fecha final se valora la cartera tomando la última cotización
+      disponible hasta esa fecha, pero sólo si las participaciones ya se habían
+      comprado. Por tanto, si la fecha final es anterior a 2015, las segundas
+      participaciones se excluyen. Si la fecha final es NULL, se sobrentiende
+      que es hoy.
+    + La fecha inicial sirve para tomar como capital el valor de las
+      participaciones en ese momento (esto es tomando la última cotización
+      disponible hasta esa fecha). Si la suspcripción se produjo después de esa
+      fecha, se toma como capital el capital de adquisición. Por tanto, si la
+      fecha inicial es anterior a 2015 y posterior al inicio de 2010, el capital
+      para las primeras participacione se tomará como su valor en esa fecha y el
+      capital para las segundas como lo que costó adquirirlas. Si se proporciona
+      como fecha NULL, se toman los capitales de adquisición.
+
+    Para proporcionar las fechas a la vista debe usar CTE:
+
+    ```sql
+    WITH FechaInicial AS (SELECT NULL),
+         FechaFinal   AS (SELECT '2020-09-10')
+    SELECT * FROM CarteraHistorica;
+    ```
 
 + **Plusvalia**: Muestra la plusvalía fiscal de cada una de las ventas y de las
   participaciones que aún se conservan. Así pues, esta vista si tiene en cuenta
