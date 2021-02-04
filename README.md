@@ -278,19 +278,30 @@ Las relación de vistas relevantes es:
 
   En este caso el campo ``capital`` es la suma del coste de adquisión de las
   participaciones de la cuenta partícipe (que no coincidirá con el coste
-  original de adquisión si parte o todas las participaciones proceden de
+  original de adquisión si todas o parte de las participaciones proceden de
   traspaso) y ``fecha`` y ``vl`` son la ultima fecha de la que se dispone de
   valor liquidativo y el propio valor liquidativo. Los últimos campos permiten
   conocer la rentabilidad. El primero es la ``valoración`` de las
   participaciones tomando como referencia ``vl`` y la ``plusvalía`` la ganancia
   (o pérdida) sobre ``capital`` en tanto por ciento.
 
+  La vista tiene el defecto de que, cuando las participaciones proceden de un
+  mero cambio de comercializadora, se toma el valor de las participaciones en del
+  momento del cambio y no su valor de adquisición.
+
 + **CarteraHistorica**: Conceptualmente presenta lo mismo que la anterior, pero
     permite fijar la fecha inicial a partir de la cual se observan las
-    inversiones y la fecha final en que se valoran.
+    inversiones y la fecha final en que se valoran. Además:
+
+    + Proporciona el beneficio o la pérdida anterior el momento de adquirir las
+      participaciones actuales, lo cual se dará cuando las participaciones
+      procedan de traspaso.
+
+    + Si las particiones proceden de un cambio de comercializadora, carece del
+      defecto de tomar como capital la valoración en la fecha de este cambio.
 
     ```
-    CarteraHistorica(isin, cuentaID, comercializadora, capital, fecha, vl, participaciones, valoracion, plusvalía)
+    CarteraHistorica(isin, cuentaID, comercializadora, anterior, capital, fecha, vl, participaciones, valoracion, plusvalía)
     ```
 
     Por ejemplo, supongamos una cartera muy simple constituida por una única

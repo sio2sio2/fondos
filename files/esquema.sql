@@ -564,7 +564,6 @@ FOR EACH ROW
       FROM NuevaOrden, VentaDesagregada;
    END;
 
-DROP VIEW IF EXISTS Evolucion;
 -- Genera la evolución temporal del beneficio de una suscripción
 -- (las que se listan en la vista Plusvalía) en periodos de "meses"
 -- o "semanas". La salisa es útil para generar gráfico de rentabilidad.
@@ -651,9 +650,22 @@ CREATE VIEW IF NOT EXISTS Evolucion AS
 --
 --  Obviamente dejar a NULL ambas fechas, equivale consultar Cartera)
 ---
-DROP VIEW IF EXISTS CarteraHistorica;
 CREATE VIEW IF NOT EXISTS CarteraHistorica AS
    WITH
+      -- Suscripciones que en realidad son un mero cambio de comercializadora
+      CambioComercializadora AS (
+         SELECT S2.suscripcionID
+         FROM tSuscripcion S1
+                 JOIN
+              tVenta V USING(suscripcionID)
+                 JOIN
+              tSuscripcion S2 ON S2.origen = V.ventaID
+                 JOIN
+              tCuenta T1 ON T1.cuentaID = S1.cuentaID
+                 JOIN
+              tCuenta T2 ON T2.cuentaID = S2.cuentaID
+         WHERE T1.isin = T2.isin
+      ),
       Progreso AS (
          SELECT H.desinversion,
                 H.suscripcionID,
@@ -672,32 +684,50 @@ CREATE VIEW IF NOT EXISTS CarteraHistorica AS
             AND Co.fecha >= COALESCE((SELECT * FROM FechaInicial), '')
             AND Co.fecha <= COALESCE((SELECT * FROM FechaFinal), '9999-99-99')
       ),
+      InversionOriginal AS (
+         SELECT * FROM Progreso
+         GROUP BY desinversion, orden
+         HAVING fecha = MIN(fecha)
+      ),
+      UltimaInversion AS (
+         SELECT * FROM Progreso
+         GROUP BY desinversion, orden
+         HAVING fecha = MAX(fecha)
+      ),
+      -- Para el coste debemos tener en cuenta que si la inversión
+      -- es en realidad un cambio de comercializadora, no vale.
+      UltimaInversionReal AS (
+         SELECT * FROM Progreso
+         WHERE suscripcionID NOT IN (SELECT * FROM CambioComercializadora)
+         GROUP BY desinversion, orden
+         HAVING fecha = MAX(fecha)
+      ),
       Prev AS (
          SELECT P2.cuentaID,
                 SUM(
                   CASE 
-                     -- Si incluimos la compra en el periodo FechaInicial-FechaFinal
-                     -- entonces usamos el coste de compra
+                     -- Si la compra se realizó dentro del periodo (FechaInicial, FechaFinal)
+                     -- entonces usamos el coste de compra.
                      WHEN P1.fecha_c < (SELECT * FROM FechaInicial) THEN P1.participaciones*P1.vl
                      ELSE P1.coste
                   END
-                ) AS capital,
+                ) AS inicial,  -- Valoración a FechaInicial.
+                SUM(P3.coste) AS capital,  -- Coste de compra de las participaciones actuales.
                 P2.fecha,
                 P2.vl,
                 SUM(P2.participaciones) AS participaciones
-         FROM (SELECT * FROM Progreso
-               GROUP BY desinversion, orden
-               HAVING fecha = MIN(fecha)) P1
+         FROM InversionOriginal P1 
+                 JOIN 
+              UltimaInversion P2 USING(desinversion, orden)
                   JOIN
-              (SELECT * FROM Progreso
-               GROUP BY desinversion, orden
-               HAVING fecha = MAX(fecha)) P2 USING(desinversion, orden)
+              UltimaInversionReal P3 USING(desinversion, orden)
          GROUP BY P2.cuentaID
       )
    SELECT isin,
           cuentaID,
           comercializadora,
-          capital,
+          ROUND(capital - inicial, 2) AS anterior, -- Beneficio acomulado antes de la inversión vigente.
+          capital, 
           fecha,
           vl,
           participaciones,

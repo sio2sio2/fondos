@@ -358,10 +358,23 @@ class Interfaz:
         with db.session:
             inv = []
             for cartera in db.Cartera.get(fi=fi, ff=ff, viva=True):
-                try:
-                    ganancia = (cartera.participaciones*cartera.vl -
-                                cartera.capital)
-                except TypeError:
+                if config.force_extract and cartera.valoracion is None:
+                    cot = db.Cotizacion(cartera.fondo.isin,
+                                        cartera.fecha, None)
+                    cot.insert()
+                    if not cot.vl:  # No se puede obtener.
+                        logger.warn("Imposible obtener el capital "
+                                    "de {cartera.fondo.alias}"
+                                    "[{cartera.comercializadora}]")
+                    else:
+                        cartera.vl = cot.vl
+                        part = cartera.participaciones
+                        cartera.valoracion = part * cartera.vl
+
+                if cartera.valoracion is not None and \
+                        cartera.capital is not None:
+                    ganancia = cartera.valoracion - cartera.capital
+                else:
                     ganancia = None
 
                 if self.color:
@@ -370,58 +383,50 @@ class Interfaz:
                         color_vl = "+"
                     elif color_vl is False:
                         color_vl = "-"
-                    color_ganancia = ganancia
-                    if color_ganancia is not None:
-                        if color_ganancia > 0:
+                    color_ganancia = None
+                    if ganancia is not None:
+                        if ganancia > 0:
                             color_ganancia = "+"
-                        elif color_ganancia < 0:
+                        elif ganancia < 0:
                             color_ganancia = "-"
                         else:
                             color_ganancia = False
-                else:
-                    color_vl = color_ganancia = False
 
-                if config.force_extract:
-                    capital = 0
-                    for p in db.Suscripcion.get(cuenta=cartera.cuentaID,
-                                                vivo=True):
-                        if p.coste is None or p.restantes is None:
-                            cot = db.Cotizacion(p.cuenta.fondo.isin,
-                                                p.fecha, None)
-                            cot.insert()
-                            if not cot.vl:  # No se puede obtener.
-                                logger.warn("Imposible obtener el capital "
-                                            "de {cartera.fondo.alias}"
-                                            "[{cartera.comercializadora}]")
-                                capital = None
-                                break
-                            else:
-                                p = next(db.Suscripcion.get(id=p.id))
-                        capital += p.coste
+                    color_ant = False
+                    if cartera.anterior is not None:
+                        if cartera.anterior < 0:
+                            color_ant = "-"
+                        elif cartera.anterior == 0:
+                            color_ant = False
+                        else:
+                            color_ant = "+"
+
                 else:
-                    capital = cartera.capital
+                    color_vl = color_ganancia = color_ant = False
 
                 inv.append((True,  # Sólo salen inversiones activas.
                             [(cartera.fondo.alias, False),
                              (cartera.fondo.isin, False),
                              (cartera.fondo.riesgo, False),
                              (cartera.comercializadora, False),
-                             (capital, False),
+                             (cartera.anterior, color_ant),
+                             (cartera.capital, False),
                              (cartera.fecha, False),
                              (cartera.participaciones, False),
                              (cartera.vl, color_vl),
                              (ganancia, color_ganancia)]))
 
         # Calculamos qué porcentaje del total representa cada inversión
-        total = sum(i[4][0] + i[8][0] for _, i in inv)  # capital + ganancia
+        total = sum(i[5][0] + i[9][0] for _, i in inv)  # capital + ganancia
         for _, i in inv:
-            i.insert(5, (round((i[4][0] + i[8][0])/total*100, 2), False))
+            i.insert(6, (round((i[5][0] + i[9][0])/total*100, 2), False))
 
         inv.sort(key=lambda e: e[1][2][0] or 0)  # Ordenamos por riesgo
 
-        self.crear_tabla(["Fondo", "ISIN", "R", "Banco", "Inversión",
-                          "%Cartera", "Fecha", "Part.", "VL", "Ganancia"],
-                         [15, 12, 1, 13, 9, 8, 10, 9, 9, 9], inv)
+        self.crear_tabla(["Fondo", "ISIN", "R", "Banco", "Anterior",
+                          "Inversión", "%Cartera", "Fecha", "Part.",
+                          "VL", "Ganancia"],
+                         [15, 12, 1, 10, 9, 9, 8, 10, 9, 9, 9], inv)
 
     def mostrar_plusvalias(self):
         db = config.db

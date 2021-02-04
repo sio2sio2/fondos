@@ -435,15 +435,12 @@ class SQLiteConector(ConnectorWithCursor):
         cond = []
         params: List[Any] = []
 
-        if not fecha_i and not fecha_f:
-            sql = "SELECT * FROM Cartera"
-        else:
-            sql = """
-                WITH FechaInicial AS (SELECT ?),
-                     FechaFinal AS (SELECT ?)
-                SELECT * FROM CarteraHistorica
-            """
-            params.extend((fecha_i, fecha_f))
+        sql = """
+            WITH FechaInicial AS (SELECT ?),
+                 FechaFinal AS (SELECT ?)
+            SELECT * FROM CarteraHistorica
+        """
+        params.extend((fecha_i, fecha_f))
 
         if fondo:
             cond.append("isin = ?")
