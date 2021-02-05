@@ -712,7 +712,14 @@ CREATE VIEW IF NOT EXISTS CarteraHistorica AS
                      ELSE P1.coste
                   END
                 ) AS inicial,  -- Valoración a FechaInicial.
-                SUM(P3.coste) AS capital,  -- Coste de compra de las participaciones actuales.
+                SUM(
+                  CASE
+                     -- Si la inversión actual se hizo antes de FechaInicial
+                     -- se debe tomar la valoración a FechaInicial.
+                     WHEN P3.fecha_c < (SELECT * FROM FechaInicial) THEN P1.participaciones*P1.vl
+                     ELSE P3.coste
+                  END
+               ) AS capital,  -- Coste de compra de las participaciones actuales.
                 P2.fecha,
                 P2.vl,
                 SUM(P2.participaciones) AS participaciones
