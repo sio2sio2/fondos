@@ -665,6 +665,7 @@ CREATE VIEW IF NOT EXISTS CarteraHistorica AS
                  JOIN
               tCuenta T2 ON T2.cuentaID = S2.cuentaID
          WHERE T1.isin = T2.isin
+            AND S2.fecha >= COALESCE((SELECT * FROM FechaInicial), '')
       ),
       Progreso AS (
          SELECT H.desinversion,
@@ -726,7 +727,7 @@ CREATE VIEW IF NOT EXISTS CarteraHistorica AS
          FROM InversionOriginal P1 
                  JOIN 
               UltimaInversion P2 USING(desinversion, orden)
-                  JOIN
+                 JOIN
               UltimaInversionReal P3 USING(desinversion, orden)
          GROUP BY P2.cuentaID
       )

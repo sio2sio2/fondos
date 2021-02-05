@@ -458,7 +458,7 @@ class SQLiteConector(ConnectorWithCursor):
 
         scond = f'WHERE {" AND ".join(cond)}' if cond else ""
 
-        self.execute(f'{sql} {scond} ORDER BY capital', params)
+        self.execute(f'{sql} {scond} ORDER BY cuentaID, capital', params)
         logger.debug(f'Obtenida cartera del fondo {fondo if fondo else "*"}')
         yield from self
 
