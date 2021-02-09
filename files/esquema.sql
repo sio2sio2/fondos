@@ -564,9 +564,21 @@ FOR EACH ROW
       FROM NuevaOrden, VentaDesagregada;
    END;
 
--- Genera la evolución temporal del beneficio de una suscripción
+
+-- Genera la evolución temporal de al rentabilidad de cada suscripción
 -- (las que se listan en la vista Plusvalía) en periodos de "meses"
--- o "semanas". La salisa es útil para generar gráfico de rentabilidad.
+-- o "semanas" entre dos fechas de tiempo. No especificar la fecha inicial
+-- implica desde que se hizo la primera inversión; y no especificar
+-- la final, hasta el último día registrado. La salisd es útil para generar un
+-- gráfico con la evolución de las rentabilidades.
+--
+-- Para usar la vista deben definirse Periodo, FechaInicial y FechaFinal:
+--
+-- WITH FechaInicial AS (SELECT NULL), -- Desde la primera inversión.
+--      FechaFinal   AS (SELECT NULL), -- Hasta hoy mismo.
+--      Periodo      AS (SELECT 'semanas')  -- Valores semanales.
+-- SELECT * FROM Evolucion;
+--
 CREATE VIEW IF NOT EXISTS Evolucion AS
    -- Extrae las cotizaciones en periodo de meses o semanas:
    -- Toma la fecha de inversión más antigua, genera fechas
@@ -574,58 +586,93 @@ CREATE VIEW IF NOT EXISTS Evolucion AS
    -- para cada una de esas fechas o, si no existe, la anteriormente
    -- más cercana.
    WITH RECURSIVE
-      Periodo(periodo, delta) AS (SELECT "semanas", "7 days" UNION SELECT "meses", "1 month"),
+      Comienzo(fecha) AS (
+         SELECT CASE
+                  WHEN (SELECT * FROM FechaInicial) >= (SELECT MIN(fecha) FROM tSuscripcion) THEN (SELECT * FROM FechaInicial)
+                  ELSE (SELECT MIN(fecha) FROM tSuscripcion)
+                END
+      ),
+      Fin(fecha) AS (
+         SELECT CASE
+                  WHEN (SELECT * FROM FechaFinal) <= DATE("now") THEN (SELECT * FROM FechaFinal)
+                  ELSE DATE("now")
+                END
+      ),
+      Periodos(periodo, delta) AS (SELECT "semanas", "7 days" UNION SELECT "meses", "1 month"),
       RangoInicial(periodo, delta, inf, sup) AS (
          SELECT P.*, DATE(S.fecha, "-" || P.delta), S.fecha
-         FROM (SELECT MIN(fecha) AS fecha FROM tSuscripcion) S, Periodo P
-         GROUP BY P.periodo
+         FROM (SELECT fecha FROM Comienzo) S, Periodos P
+         WHERE P.periodo = (SELECT * FROM Periodo)
       ),
       Secuencia AS (
          SELECT * FROM RangoInicial
             UNION ALL
-         SELECT periodo, delta, sup AS inf, DATE(sup, "+" || delta) AS sup FROM Secuencia WHERE sup <= DATE("now")
+         SELECT periodo, delta, sup AS inf, DATE(sup, "+" || delta) AS sup FROM Secuencia WHERE sup <= (SELECT * FROM Fin)
       ),
       Temporizacion AS (
          SELECT S.periodo, C.isin, C.fecha, C.vl
          FROM tCotizacion C JOIN Secuencia S ON C.fecha > S.inf AND C.fecha <= S.sup
          GROUP BY C.isin, S.periodo, S.inf, S.sup HAVING C.fecha = MAX(C.fecha)
          ORDER BY C.isin, C.fecha
+      ),
+      Puntos AS (
+         -- El coste inicial de la inversión puede quedar excluido
+         -- si la fecha de compra, no está incluida en la temporización.
+         -- así que para subsanarlo hacemos esta consulta. Ahora bien,
+         -- la operación inicial es relevante sólo si su fecha no es
+         -- anterior a la FechaInicial.
+         SELECT (SELECT * FROM Periodo) AS periodo,
+                H.desinversion,
+                H.suscripcionID,
+                H.orden,
+                H.fecha AS fecha_c,
+                H.fecha_v,
+                H.participaciones,
+                C.isin,
+                H.fecha AS fecha,
+                H.coste AS rembolso
+         FROM Historial H JOIN tCuenta C USING(cuentaID)
+            LEFT JOIN Temporizacion T USING(isin, fecha)
+         WHERE H.fecha_i = H.fecha AND T.fecha IS NULL
+                  AND H.fecha >= (SELECT * FROM Comienzo)
+            UNION ALL
+         -- Interpolamos el Historial de cada inversión
+         -- para obtener las valoraciones intermedias.
+         SELECT T.periodo,
+                H.desinversion,
+                H.suscripcionID,
+                H.orden,
+                H.fecha AS fecha_c,
+                H.fecha_v,
+                H.participaciones,
+                T.isin,
+                T.fecha AS fecha,
+                H.participaciones*T.vl AS rembolso
+         FROM Historial H
+            JOIN tCuenta C USING(cuentaID)
+            LEFT JOIN Temporizacion T ON C.isin = T.isin
+         WHERE T.fecha >= H.fecha AND T.fecha <= H.fecha_v
+      ),
+      -- Puntos de inicio de la inversión
+      PuntosIniciales AS (
+         SELECT *
+         FROM Puntos
+         GROUP BY desinversion, orden
+         HAVING fecha = MIN(fecha)
       )
-   -- Añade un registro inicial a cada inversión particular
-   -- del día en que se hizo, en caso que ese día no esté incluido
-   -- en los de la temporizsación.
-   SELECT P.periodo,
-          H.desinversion,
-          H.suscripcionID,
-          H.orden,
-          H.coste,
-          H.fecha AS fecha_c,
-          H.fecha_v,
-          H.participaciones,
-          C.isin,
-          H.fecha,
-          H.coste AS rembolso
-   FROM Periodo P, Historial H JOIN tCuenta C USING(cuentaID)
-      LEFT JOIN Temporizacion T USING(isin, periodo, fecha)
-   WHERE H.fecha_i = H.fecha AND T.fecha IS NULL
-      UNION ALL
    -- La evolución propiamente
-   SELECT T.periodo,
-          H.desinversion,
-          H.suscripcionID,
-          H.orden,
-          H2.coste,
-          H.fecha AS fecha_c,
-          H.fecha_v,
-          H.participaciones,
-          T.isin,
-          T.fecha,
-          H.participaciones*T.vl AS rembolso
-   FROM Historial H
-      JOIN tCuenta C USING(cuentaID)
-      JOIN Historial H2 ON H.desinversion = H2.desinversion AND H.orden = H2.orden AND H2.fecha_i = H2.fecha
-      LEFT JOIN Temporizacion T ON C.isin = T.isin
-   WHERE T.fecha >= H.fecha AND T.fecha <= H.fecha_v
+   SELECT P.periodo,
+          P.desinversion,
+          P.suscripcionID,
+          P.orden,
+          I.rembolso AS coste,
+          P.fecha_c,
+          P.fecha_v,
+          P.participaciones,
+          P.isin,
+          P.fecha,
+          P.rembolso
+   FROM Puntos P JOIN PuntosIniciales I USING(desinversion, orden)
       UNION ALL
    -- Registros que definen cuál ha sido la temporización de fechas.
    SELECT periodo, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, sup AS fecha, NULL

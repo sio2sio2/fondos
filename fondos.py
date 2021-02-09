@@ -91,8 +91,11 @@ def parse_args():
                         "sobreentienden 10")
     vgroup.add_argument("-I", "--inversiones_H", action="store",
                         help="Muestra la composición de la cartera desde o "
-                             "hasta la fecha indicada: AAAA-MM-DDi, o bien "
+                             "hasta la fecha indicada: AAAA-MM-DDi, o bien, "
                              "AAAA-MM-DD.")
+    vgroup.add_argument("-G", "--grafico_H", action="store",
+                        help="Muestra gráficamente la evolución de las "
+                        "inversiones a partir de una fecha inicial")
 
     vgroup = parser.add_mutually_exclusive_group()
     vgroup.add_argument("-f", "--fondo", action="store_true",
@@ -346,13 +349,17 @@ class Interfaz:
             print(linea(campos, colores))
             print(sep)
 
-    def mostrar_cartera(self, arg=None):
+    @staticmethod
+    def rango_fechas(arg):
         if not arg:
-            fi = ff = None
+            return None, None
         elif arg[-1] == "i":
-            fi, ff = arg[0:-1], None
+            return arg[0:-1], None
         else:
-            ff, fi = arg[0:-1], None
+            return None, arg[0:-1]
+
+    def mostrar_cartera(self, arg=None):
+        fi, ff = self.rango_fechas(arg)
 
         db = config.db
         with db.session:
@@ -495,10 +502,13 @@ class Interfaz:
                           "Plu (%)", "TAE (%)"],
                          [4, 13, 9, 10, 10, 10, 8, 10, 10, 7, 10], inv)
 
-    def mostrar_evolucion(self):
+    def mostrar_evolucion(self, arg=None):
+        fi, ff = self.rango_fechas(arg)
+
         db = config.db
         with db.session:
-            puntos = tuple(db.Evolucion.get("semanas", abcisas=False))
+            puntos = tuple(db.Evolucion.get("semanas", fi=fi,
+                                            ff=ff, abcisas=False))
 
         inversiones, minimo, maximo = {}, datetime.now()\
             .strftime('%Y-%m-%d'), '1900-01-01'
@@ -684,6 +694,8 @@ def main():
         interfaz.mostrar_cotizaciones(config.history)
     elif config.inversiones_H:
         interfaz.mostrar_cartera(config.inversiones_H)
+    elif config.grafico_H:
+        interfaz.mostrar_evolucion(config.grafico_H)
 
 
 if __name__ == '__main__':

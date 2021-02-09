@@ -564,13 +564,15 @@ class Evolucion(Register):
 
     @classmethod
     def get(cls, periodo, *,
+            fi: date = None,
+            ff: date = None,
             abcisas: bool = True,
             desinversion: Union[None, bool, int, Suscripcion] = None):
         """Obtiene la evolución temporal de una inversión"""
 
         desinversion = getattr(desinversion, "id", desinversion)
 
-        return cls.db.get_evolucion(periodo, abcisas=abcisas,
+        return cls.db.get_evolucion(periodo, fi=fi, ff=ff, abcisas=abcisas,
                                     desinversion=desinversion)
 
     @property

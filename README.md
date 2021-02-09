@@ -325,13 +325,7 @@ Las relación de vistas relevantes es:
       capital para las segundas como lo que costó adquirirlas. Si se proporciona
       como fecha NULL, se toman los capitales de adquisición.
 
-    Para proporcionar las fechas a la vista debe usar CTE:
-
-    ```sql
-    WITH FechaInicial AS (SELECT NULL),
-         FechaFinal   AS (SELECT '2020-09-10')
-    SELECT * FROM CarteraHistorica;
-    ```
+    Para proporcionar las fechas a la vista debe usar CTE (véase los ejemplos).
 
 + **Plusvalia**: Muestra la plusvalía fiscal de cada una de las ventas y de las
   participaciones que aún se conservan. Así pues, esta vista si tiene en cuenta
@@ -374,6 +368,9 @@ Las relación de vistas relevantes es:
   Obsérvese que si entre la fecha de compra y la fecha de venta de la
   suscripción median 4 meses y el periodo de tiempo seleccionado es "meses", el
   registro de *Plusvalía* generará cuatro registros en esta vista.
+
+  Para utilizar la vista deben forzosamente proporcionarse una FechaInicial, una
+  FechaFinal y un Periodo con CTE (véase los ejemplos).
 
   La vista añade, además, registros para conocer cuáles fueron las fechas
   equiespaciadas que se tomaron para obtener los datos de rembolsos. En estos
@@ -568,22 +565,53 @@ Las relación de vistas relevantes es:
    SELECT orden, cuentaID, fecha_i, capital, fecha_v, participaciones, rembolso
    FROM Plusvalia;
    ```
+1. Consultado la cartera:
+
+   Hay una consulta simplificada que muestra la cartera al momento de la última
+   fecha registrada en la base de datos:
+
+
+   ```sql
+   SELECT * FROM Cartera;
+   ```
+
+   Esta consulta, sin embargo, no muestra la historia anterior de la cartera
+   como hace la ConsultaHistorica, que además permite especificar una fecha
+   inicial y una fecha final tomadas como referencia. La fecha inicial toma como
+   capital de inversion la valoración de la cartera en ese momento y la fecha
+   final elimina la historia posterior a tal fecha. Si ambas se dejan
+   indefinidas, entonces la consulta será equivalente a la simplificada, pero
+   incluyendo un campo que resume la historia anterior:
+
+
+    ```sql
+    WITH FechaInicial AS (SELECT NULL),
+         FechaFinal   AS (SELECT '2020-09-10')
+    SELECT * FROM CarteraHistorica;
+    ```
+
 1. Obteniendo los datos para representar una gráfica de la evolución temporal de
    todas las inversiones:
 
    * Datos de la evolución de la desinversión **45**:
 
      ```sql
+     WITH FechaInicial AS (SELECT NULL),
+          FechaFinal   AS (SELECT NULL),
+          Periodo      AS (SELECT 'semanas')
      SELECT desinversion || "/" || orden AS 'inversion',
             fecha,
             ROUND(rembolso/coste - 1, 4) AS 'beneficio'
-     FROM Evolucion WHERE periodo = 'meses' AND desinversion = 45;
+     FROM Evolucion WHERE desinversion = 45;
      ```
 
    * Fechas equiespaciadas por meses para generar el eje de abcisas:
 
      ```sql
-     SELECT fecha FROM Evolucion WHERE desinversion IS NULL and periodo = 'meses';
+     WITH FechaInicial AS (SELECT NULL),
+          FechaFinal   AS (SELECT NULL),
+          Periodo      AS (SELECT 'meses')
+     SELECT fecha FROM Evolucion WHERE desinversion IS NULL;
      ```
 
 ## Script en Python

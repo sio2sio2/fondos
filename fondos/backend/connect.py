@@ -458,7 +458,7 @@ class SQLiteConector(ConnectorWithCursor):
 
         scond = f'WHERE {" AND ".join(cond)}' if cond else ""
 
-        self.execute(f'{sql} {scond} ORDER BY cuentaID, capital', params)
+        self.execute(f'{sql} {scond} ORDER BY cuentaID', params)
         logger.debug(f'Obtenida cartera del fondo {fondo if fondo else "*"}')
         yield from self
 
@@ -552,6 +552,8 @@ class SQLiteConector(ConnectorWithCursor):
 
     @cursor
     def get_evolucion(self, periodo: str, *,
+                      fi: date = None,
+                      ff: date = None,
                       abcisas: bool = True,
                       desinversion: Union[None, bool, int] = None):
         """
@@ -559,14 +561,23 @@ class SQLiteConector(ConnectorWithCursor):
         se suscribieron con dinero nuevo.
         :param periodo: Periodo temporal de separación entre los distintos
             valores.
+        :param fi: Fecha de comienzo del gráfico. Si no se especifica, se toma
+            la fecha de la primera inversión.
+        :param ff: Fecha de final del gráfico. Si no se especifica, se toma
+            la fecha registrada más reciente.
         :param abcisas: Define si se quieren obtener valores para
             las ordenadas.
         :param desinversion: Desinversión de la que se quiere obtener
             la evolución. Si es :kbd:`False`, no se obtendrá ninguna, pero
             aún podrán obtenerse los valores para el eje de abcisas.
         """
-        sql, cond = "SELECT * FROM Evolucion", ["periodo = ?"]
-        params: List[Any] = [periodo]
+
+        sql = """WITH FechaInicial AS (SELECT ?),
+                      FechaFInal   AS (SELECT ?),
+                      Periodo      AS (SELECT ?)
+                 SELECT * FROM Evolucion"""
+
+        params, cond = [fi, ff, periodo], []
 
         ret = True
 
@@ -590,6 +601,7 @@ class SQLiteConector(ConnectorWithCursor):
         if not ret:
             yield from ()
         else:
-            self.execute(f'{sql} WHERE {" AND ".join(cond)}', params)
+            scond = f'WHERE {" AND ".join(cond)}' if cond else ""
+            self.execute(f'{sql} {scond}', params)
             logger.debug('Extraída la evolución requirida')
             yield from self
