@@ -503,6 +503,9 @@ class Interfaz:
                          [4, 13, 9, 10, 10, 10, 8, 10, 10, 7, 10], inv)
 
     def mostrar_evolucion(self, arg=None):
+        import locale
+        locale.setlocale(locale.LC_ALL, '')
+
         fi, ff = self.rango_fechas(arg)
 
         db = config.db
@@ -531,19 +534,41 @@ class Interfaz:
                 "titulo":  f'{tag}'
             })
 
-        minimo = datetime.strptime(minimo, '%Y-%m-%d').year
-        maximo = datetime.strptime(maximo, '%Y-%m-%d').year
+        minimo = datetime.strptime(minimo, '%Y-%m-%d')
+        maximo = datetime.strptime(maximo, '%Y-%m-%d')
 
-        aa = tuple(range(minimo + 1, maximo + 1))
+        # Si el intervalo es menor a dos años, dividimos
+        # el eje de ordenadas en meses.
+        if maximo.year - minimo.year <= 2:
+            xticks, labels = [], []
+            minimo = minimo.replace(day=1)
+            while True:
+               try:
+                  minimo = minimo.replace(month=minimo.month+1)
+               except ValueError:  # Estábamos en diciembre.
+                  minimo = minimo.replace(year=minimo.year+1, month=1)
 
-        xticks = [datetime.strptime(f'{y}-01-01', '%Y-%m-%d').timestamp()
-                  for y in aa]
+               if minimo > maximo:
+                  break
+
+               xticks.append(minimo.timestamp())
+               # Para el 1 de enero se pone el año,
+               # para el resto de meses, la inicial.
+               labels.append(str(minimo.year)
+                             if minimo.month == 1
+                             else minimo.strftime('%b'))
+
+        # Y si no, en años.
+        else:
+            labels = tuple(range(minimo.year + 1, maximo.year + 1))
+            xticks = [datetime.strptime(f'{y}-01-01', '%Y-%m-%d').timestamp()
+                      for y in labels]
 
         for g in graficos:
             plt.plot(*tuple(zip(*g["puntos"])))
             plt.text(*g["puntos"][-1], g["titulo"])
 
-        plt.xticks(xticks, labels=aa)
+        plt.xticks(xticks, labels=labels)
         plt.grid(True)
         plt.show()
 
