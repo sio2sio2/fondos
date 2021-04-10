@@ -13,7 +13,8 @@ from fondos.utils.backend.errors import Error
 from fondos.utils.iniargparse import IniArgumentParser
 from argparse import Action
 from fondos.backend import SQLiteConector, Fondo, Cuenta, Cotizacion, \
-        Suscripcion, Venta, Cartera, Historial, Traspaso, Plusvalia, Evolucion
+        Suscripcion, Venta, Cartera, Historial, Traspaso, Plusvalia, \
+        Evolucion, UltimasCotizaciones
 import matplotlib.pyplot as plt
 
 logger = Logger().get_logger(__name__)
@@ -96,6 +97,9 @@ def parse_args():
     vgroup.add_argument("-G", "--grafico_H", action="store",
                         help="Muestra gráficamente la evolución de las "
                         "inversiones a partir de una fecha inicial")
+    vgroup.add_argument("-u", "--ultimas", action="store_true",
+                        help="Muestra las últimas cotizaciones de "
+                        "los fondos con inversión activa.")
 
     vgroup = parser.add_mutually_exclusive_group()
     vgroup.add_argument("-f", "--fondo", action="store_true",
@@ -430,6 +434,24 @@ class Interfaz:
 
         inv.sort(key=lambda e: e[1][2][0] or 0)  # Ordenamos por riesgo
 
+        # Totales
+        tanterior = sum(i[1][4][0] for i in inv)
+        tcapital = sum(i[1][5][0] for i in inv)
+        tganancia = sum(i[1][10][0] for i in inv)
+
+        inv.append((True,
+                    [("TOTAL", False),
+                     ("", False),
+                     ("", False),
+                     ("", False),
+                     (tanterior, "+" if tanterior >= 0 else "-"),
+                     (tcapital, False),
+                     (100, False),
+                     ("", False),
+                     ("", False),
+                     ("", False),
+                     (tganancia, "+" if tganancia >= 0 else "-")]))
+
         self.crear_tabla(["Fondo", "ISIN", "R", "Banco", "Anterior",
                           "Inversión", "%Cartera", "Fecha", "Part.",
                           "VL", "Ganancia"],
@@ -486,7 +508,7 @@ class Interfaz:
 
             inv.append((True,
                         [("", False),
-                         ("Total", False),
+                         ("TOTAL", False),
                          (str(year), False),
                          (capital, False),
                          ("", False),
@@ -614,6 +636,26 @@ class Interfaz:
         self.crear_tabla(["Fecha", "Valor", "Var."],
                          [10, 7, 6], cotizaciones)
 
+    def mostrar_ultimascot(self):
+
+        db = config.db
+        with db.session:
+            inv = []
+            for cot in db.UltimasCotizaciones.get(1):
+                color = False
+                if self.color and cot.variacion != 0:
+                    color = "-" if cot.variacion < 0 else "+"
+                inv.append((True,
+                            [(cot.fondo.alias, False),
+                             (cot.fondo.isin, False),
+                             (cot.fecha, False),
+                             (cot.vl, color),
+                             (cot.variacion, color)
+                            ]))
+
+        self.crear_tabla(["Fondo", "ISIN", "fecha", "VL", "Var(%)"],
+                         [15, 12, 10, 7, 6], inv)
+
 
 def main():
     "Programa principal"
@@ -625,7 +667,7 @@ def main():
                                     ref_int=True,
                                     dump=registrar(),
                                     schema=agrega_path("SQL/esquema.sql"))
-    db.attach((Fondo, Cuenta, Cotizacion, Suscripcion,
+    db.attach((Fondo, Cuenta, Cotizacion, Suscripcion, UltimasCotizaciones,
                Venta, Cartera, Traspaso, Historial, Plusvalia, Evolucion))
 
     if config.fondo:
@@ -721,6 +763,8 @@ def main():
         interfaz.mostrar_cartera(config.inversiones_H)
     elif config.grafico_H:
         interfaz.mostrar_evolucion(config.grafico_H)
+    elif config.ultimas:
+        interfaz.mostrar_ultimascot()
 
 
 if __name__ == '__main__':

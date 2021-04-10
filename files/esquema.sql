@@ -790,3 +790,34 @@ CREATE VIEW IF NOT EXISTS CarteraHistorica AS
           ROUND(1.0*vl*participaciones/capital - 1, 4) AS plusvalia
    FROM Prev JOIN tCuenta USING(cuentaID)
    ORDER BY isin, comercializadora;
+
+-- Últimas Variaciones en las cotizaciones de los fondos activos:
+--
+--    SELECT * FROM VarCotizacion
+--    WHERE numvar <= 1;
+--
+-- donde numvar es el número de variaciones que queremos ver.
+-- En el ejemplo sólo se mostrará la última variación.
+-- Obsérvese que hay que indicar '<=', no '='
+--
+CREATE VIEW IF NOT EXISTS VarCotizacion AS
+   WITH FondoActivo AS (
+            SELECT DISTINCT C.isin
+            FROM tCuenta C
+                  JOIN
+                 Suscripcion S USING(cuentaID)
+            WHERE S.participaciones > 0
+        ),
+        Cotizacion AS (
+            SELECT *, RANK() OVER (
+                        PARTITION BY isin
+                        ORDER BY fecha DESC
+                      ) AS orden
+            FROM tCotizacion JOIN FondoActivo USING(isin)
+        )
+   SELECT C1.isin,
+          C1.fecha,
+          C1.vl,
+          ROUND(C1.vl/C2.vl - 1, 4)*100 AS variacion,
+          C1.orden AS numvar
+   FROM Cotizacion C1 JOIN Cotizacion C2 ON C1.isin = C2.isin AND C1.orden = C2.orden - 1

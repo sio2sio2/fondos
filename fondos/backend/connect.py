@@ -551,6 +551,19 @@ class SQLiteConector(ConnectorWithCursor):
         yield from self
 
     @cursor
+    def get_ult_cotizaciones(self, num: int):
+        """Obtiene las últimas cotizaciones de los fondos que tienen
+           alguna suscripción viva.
+
+            :param num: Número de cotizaciones que quieren obtenerse.
+        """
+
+        sql = "SELECT * FROM VarCotizacion WHERE numvar <= ?"
+        self.execute(sql, [num])
+        logger.debug(f'Extraídas las {num} últimas cotizaciones')
+        yield from self
+
+    @cursor
     def get_evolucion(self, periodo: str, *,
                       fi: date = None,
                       ff: date = None,

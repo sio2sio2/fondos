@@ -553,6 +553,27 @@ class Plusvalia(Register):
         return orden != 0
 
 
+class UltimasCotizaciones(Register):
+    """Modela las últimas cotizaciones"""
+    _fields = "isin fecha vl variacion orden"
+
+    _fondo: Fondo
+
+    @classmethod
+    def get(cls, num: int=1):
+        return cls.db.get_ult_cotizaciones(num)
+
+    @property
+    def fondo(self) -> Optional[Fondo]:
+        try:
+            return self._fondo
+        except AttributeError:
+            suscr = self.db.Fondo
+            self._fondo = next(suscr.get(isin=self.isin), None)
+
+            return self._fondo
+
+
 class Evolucion(Register):
     """Modela la evolucion de las sucripciones"""
     _fields = ("periodo desinversionID suscripcionID orden coste fecha_c "
@@ -601,6 +622,6 @@ class Evolucion(Register):
             return self._fondo
         except AttributeError:
             suscr = self.db.Fondo
-            self._fondo = next(suscr.get(id=self.isin), None)
+            self._fondo = next(suscr.get(isin=self.isin), None)
 
             return self._fondo
