@@ -533,17 +533,15 @@ FOR EACH ROW
            -- 250 participaciones para una cuenta partícipe, la columna
            -- adicional contendrá para la primera compra 100 y para la
            -- segunda, 350.
-              (SELECT S1.suscripcionID,
-                  S1.cuentaID,
-                  S1.fecha_i,
-                  S1p.participaciones AS part,
-                  SUM(S2p.participaciones) AS partacc
-               FROM tSuscripcion S1
-                      JOIN Suscripcion S1p ON S1.suscripcionID = S1p.suscripcionID
-                      JOIN tSuscripcion S2 ON S1.cuentaID = S2.cuentaID AND S1.fecha_i >= S2.fecha_i
-                      JOIN Suscripcion S2p ON S2.suscripcionID = S2p.suscripcionID
-               GROUP BY S1.cuentaID, S1.fecha_i
-               ORDER BY S1.cuentaID, S1.fecha_i),
+              (SELECT S.suscripcionID,
+                      S.cuentaID,
+                      S.fecha_i,
+                      Sp.participaciones AS part,
+                      SUM(Sp.participaciones) OVER (PARTITION BY S.cuentaID ORDER BY S.fecha_i) AS partacc
+               FROM tSuscripcion S
+                      JOIN Suscripcion Sp USING(suscripcionID)
+               WHERE Sp.participaciones > 0
+               ORDER BY S.cuentaID, S.fecha_i),
            VentaDesagregada AS
               (SELECT suscripcionID,
                       NEW.fecha_v AS fecha,
