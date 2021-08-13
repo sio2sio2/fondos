@@ -558,7 +558,7 @@ FOR EACH ROW
                FROM SuscripcionAggr
                WHERE cuentaID = NEW.origen AND part > 0 AND vendidas > 0),
            NuevaOrden AS (SELECT last_insert_rowid())
-      SELECT NULL, *, NEW.destino, NEW.fecha_c, NEW.part_c*vendidas/NEW.part_v, NEW.comentario
+      SELECT NULL, *, NEW.destino, NEW.fecha_c, NEW.part_c*vendidas/SUM(vendidas) OVER (), NEW.comentario
       FROM NuevaOrden, VentaDesagregada;
    END;
 
