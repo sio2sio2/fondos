@@ -402,6 +402,12 @@ class Interfaz:
                             color_ganancia = "-"
                         else:
                             color_ganancia = False
+                    if cartera.plusvalia > 0:
+                        color_plusvalia = "+"
+                    elif cartera.plusvalia < 0:
+                        color_plusvalia = "-"
+                    else:
+                        color_plusvalia = False
 
                     color_ant = False
                     if cartera.anterior is not None:
@@ -422,22 +428,19 @@ class Interfaz:
                              (cartera.comercializadora, False),
                              (cartera.anterior, color_ant),
                              (cartera.capital, False),
-                             (cartera.fecha, False),
                              (cartera.participaciones, False),
-                             (cartera.vl, color_vl),
-                             (ganancia, color_ganancia)]))
-
-        # Calculamos qué porcentaje del total representa cada inversión
-        total = sum(i[5][0] + i[9][0] for _, i in inv)  # capital + ganancia
-        for _, i in inv:
-            i.insert(6, (round((i[5][0] + i[9][0])/total*100, 2), False))
+                             (cartera.peso*100, False),
+                             (cartera.fecha, False),
+                             (ganancia, color_ganancia),
+                             (cartera.plusvalia*100, color_plusvalia)]))
 
         inv.sort(key=lambda e: e[1][2][0] or 0)  # Ordenamos por riesgo
 
         # Totales
         tanterior = sum(i[1][4][0] for i in inv)
         tcapital = sum(i[1][5][0] for i in inv)
-        tganancia = sum(i[1][10][0] for i in inv)
+        tganancia = sum(i[1][9][0] for i in inv)
+        tporcgan = round(tganancia/tcapital*100, 2)
 
         inv.append((True,
                     [("TOTAL", False),
@@ -446,16 +449,16 @@ class Interfaz:
                      ("", False),
                      (tanterior, "+" if tanterior >= 0 else "-"),
                      (tcapital, False),
+                     ("", False),
                      (100, False),
                      ("", False),
-                     ("", False),
-                     ("", False),
-                     (tganancia, "+" if tganancia >= 0 else "-")]))
+                     (tganancia, "+" if tganancia >= 0 else "-"),
+                     (tporcgan, "+" if tporcgan >= 0 else "-")]))
 
         self.crear_tabla(["Fondo", "ISIN", "R", "Banco", "Anterior",
-                          "Inversión", "%Cartera", "Fecha", "Part.",
-                          "VL", "Ganancia"],
-                         [15, 12, 1, 10, 9, 9, 8, 10, 9, 9, 9], inv)
+                          "Inversión", "Part.", "%Cartera", "Fecha",
+                          "Ganancia", "%Ganan"],
+                         [15, 12, 1, 10, 9, 9, 8, 8, 10, 9, 8], inv)
 
     def mostrar_plusvalias(self):
         db = config.db

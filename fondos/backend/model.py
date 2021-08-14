@@ -411,7 +411,7 @@ class Traspaso(Register):
 class Cartera(Register):
     """Modela la visión de una cartera"""
     _fields = "isin cuentaID comercializadora anterior capital " \
-              "fecha vl participaciones valoracion plusvalia"
+              "participaciones peso fecha vl valoracion plusvalia"
 
     _cuenta: Cuenta
 

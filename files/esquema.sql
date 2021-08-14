@@ -679,7 +679,7 @@ CREATE VIEW IF NOT EXISTS Evolucion AS
 
 
 ---
---- CarteraHistorica permite consultar la cartera como hace Inversión.
+--- CarteraHistorica permite consultar la cartera como hace Cartera.
 --  pero estableciendo fecha inicial o final de referencia o tomando ambas.
 --  Esto quiere decir que si se establece una fecha inicial, en vez de tomar
 --  el capital inicial de inversión, se toma la valoración de las inversiones
@@ -690,7 +690,7 @@ CREATE VIEW IF NOT EXISTS Evolucion AS
 --  mediante CTE (dejese a NULL para no indicarla):
 --
 --  WITH FechaInicial AS (SELECT '2020-05-01'),
---       FechaFInal   AS (SELECY NULL)
+--       FechaFInal   AS (SELECT NULL)
 --  SELECT * FROM CarteraHistorica;
 --
 --  Obviamente dejar a NULL ambas fechas, equivale consultar Cartera)
@@ -781,9 +781,10 @@ CREATE VIEW IF NOT EXISTS CarteraHistorica AS
           comercializadora,
           ROUND(capital - inicial, 2) AS anterior, -- Beneficio acomulado antes de la inversión vigente.
           capital, 
+          participaciones,
+          ROUND(vl*participaciones/SUM(vl*participaciones) OVER (), 4) AS peso,
           fecha,
           vl,
-          participaciones,
           ROUND(vl*participaciones, 2) AS valoracion,
           ROUND(1.0*vl*participaciones/capital - 1, 4) AS plusvalia
    FROM Prev JOIN tCuenta USING(cuentaID)
