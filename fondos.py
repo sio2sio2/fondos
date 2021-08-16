@@ -394,20 +394,14 @@ class Interfaz:
                         color_vl = "+"
                     elif color_vl is False:
                         color_vl = "-"
-                    color_ganancia = None
-                    if ganancia is not None:
-                        if ganancia > 0:
-                            color_ganancia = "+"
-                        elif ganancia < 0:
-                            color_ganancia = "-"
+                    color_plusvalia = None
+                    if cartera.plusvalia is not None:
+                        if cartera.plusvalia > 0:
+                            color_plusvalia = "+"
+                        elif cartera.plusvalia < 0:
+                            color_plusvalia = "-"
                         else:
-                            color_ganancia = False
-                    if cartera.plusvalia > 0:
-                        color_plusvalia = "+"
-                    elif cartera.plusvalia < 0:
-                        color_plusvalia = "-"
-                    else:
-                        color_plusvalia = False
+                            color_plusvalia = False
 
                     color_ant = False
                     if cartera.anterior is not None:
@@ -419,7 +413,7 @@ class Interfaz:
                             color_ant = "+"
 
                 else:
-                    color_vl = color_ganancia = color_ant = False
+                    color_vl = color_plusvalia = color_ant = False
 
                 inv.append((True,  # Sólo salen inversiones activas.
                             [(cartera.fondo.alias, False),
@@ -431,7 +425,8 @@ class Interfaz:
                              (cartera.participaciones, False),
                              (cartera.peso*100, False),
                              (cartera.fecha, False),
-                             (ganancia, color_ganancia),
+                             (cartera.vl, color_vl),
+                             (ganancia, color_plusvalia),
                              (cartera.plusvalia*100, color_plusvalia)]))
 
         inv.sort(key=lambda e: e[1][2][0] or 0)  # Ordenamos por riesgo
@@ -439,7 +434,7 @@ class Interfaz:
         # Totales
         tanterior = sum(i[1][4][0] for i in inv)
         tcapital = sum(i[1][5][0] for i in inv)
-        tganancia = sum(i[1][9][0] for i in inv)
+        tganancia = sum(i[1][10][0] for i in inv)
         tporcgan = round(tganancia/tcapital*100, 2)
 
         inv.append((True,
@@ -452,13 +447,14 @@ class Interfaz:
                      ("", False),
                      (100, False),
                      ("", False),
+                     ("", False),
                      (tganancia, "+" if tganancia >= 0 else "-"),
                      (tporcgan, "+" if tporcgan >= 0 else "-")]))
 
         self.crear_tabla(["Fondo", "ISIN", "R", "Banco", "Anterior",
-                          "Inversión", "Part.", "%Cartera", "Fecha",
+                          "Inversión", "Part.", "%Cart", "Fecha", "VL",
                           "Ganancia", "%Ganan"],
-                         [15, 12, 1, 10, 9, 9, 8, 8, 10, 9, 8], inv)
+                         [15, 12, 1, 9, 9, 9, 7, 5, 10, 7, 9, 6], inv)
 
     def mostrar_plusvalias(self):
         db = config.db

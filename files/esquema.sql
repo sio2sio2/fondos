@@ -362,10 +362,12 @@ CREATE VIEW IF NOT EXISTS Cartera AS
    SELECT isin,
           cuentaID,
           comercializadora,
+          NULL AS anterior,   -- No puede saberse, puesto que no se usa Historial.
           capital,
+          participaciones,
+          ROUND(vl*participaciones/SUM(vl*participaciones) OVER(), 4) AS peso,
           fecha,
           vl,
-          participaciones,
           ROUND(vl*participaciones, 2) AS valoracion,
           ROUND(1.0*vl*participaciones/capital - 1, 4) AS plusvalia
    FROM prev ORDER BY isin, comercializadora;
