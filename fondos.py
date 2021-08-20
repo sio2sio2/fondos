@@ -239,9 +239,15 @@ def parse_line(line, tipo, sep="|"):
                  reintegro=None, comentario=None):
         return (None, cuenta, fecha, participaciones, reintegro, comentario)
 
-    def traspaso(cuenta, fecha, destino, fecha_c=None, suscripciones=None,
-                 participaciones=None, rembolso=None, part_c=None,
-                 comentario=None):
+    def traspaso(cuenta, fecha, destino, fecha_c=None, participaciones=None,
+                 rembolso=None, part_c=None, comentario=None):
+        # Si el número de participaciones vendidas es un número entero
+        # entonces representa suscripciones vendidas, no participaciones
+        if isinstance(participaciones, int):
+            suscripciones, participaciones = participaciones, None
+        else:
+            suscripciones = None
+
         return (None, cuenta, fecha, suscripciones, participaciones, rembolso,
                 destino, fecha_c, part_c, comentario)
 
