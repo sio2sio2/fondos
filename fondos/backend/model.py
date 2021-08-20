@@ -277,7 +277,8 @@ class Cotizacion(Register):
 
 class Venta(Register):
     """Modela una venta agregada"""
-    _fields = "orden* cuentaID fecha participaciones reintegro comentario"
+    _fields = ("orden* cuentaID fecha suscripciones "
+               "participaciones reintegro comentario")
 
     _cuenta: Cuenta
     _vl: float
@@ -342,7 +343,7 @@ class Venta(Register):
 
 class Traspaso(Register):
     """Modela un traspaso de fondos"""
-    _fields = ("orden* origenID fecha_v part_v monto "
+    _fields = ("orden* origenID fecha_v suscripciones part_v monto "
                "destinoID fecha_c part_c comentario")
 
     _venta: Venta

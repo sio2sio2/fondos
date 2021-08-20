@@ -239,9 +239,10 @@ def parse_line(line, tipo, sep="|"):
                  reintegro=None, comentario=None):
         return (None, cuenta, fecha, participaciones, reintegro, comentario)
 
-    def traspaso(cuenta, fecha, destino, fecha_c=None, participaciones=None,
-                 rembolso=None, part_c=None, comentario=None):
-        return (None, cuenta, fecha, participaciones, rembolso,
+    def traspaso(cuenta, fecha, destino, fecha_c=None, suscripciones=None,
+                 participaciones=None, rembolso=None, part_c=None,
+                 comentario=None):
+        return (None, cuenta, fecha, suscripciones, participaciones, rembolso,
                 destino, fecha_c, part_c, comentario)
 
     def cotizacion(cuenta, fecha, vl=None):

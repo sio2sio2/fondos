@@ -478,11 +478,19 @@ CREATE VIEW IF NOT EXISTS Plusvalia AS
 
 
 -- Permite manejar las ventas usando como origen
--- la cuenta partícipe en vez de suscripciones a esa cuenta.
+-- la cuenta partícipe en vez de las suscripciones individuales.
 CREATE VIEW IF NOT EXISTS VentaAggr AS
    SELECT V.orden,
           S.cuentaID,
           V.fecha,
+          -- Número de suscripciones distintas que se venden.
+          -- Siempre es un número entero por lo que si se vendió
+          -- una suscripción completa y la cuarta parte de otra,
+          -- el campo valdrá 2.
+          -- Su utilidad está en la inserción de registros. Por ejemplo,
+          -- si se proporciona un 2, esto significa que se venden las participaciones
+          -- correspondientes a las dos suscripciones al fondo más antiguas.
+          COUNT(*) AS suscripciones,
           SUM(V.participaciones) AS participaciones,
           SUM(V.reintegro) AS reintegro,
           V.comentario
@@ -495,7 +503,7 @@ CREATE TRIGGER IF NOT EXISTS VentaAggr_BI INSTEAD OF INSERT ON VentaAggr
 FOR EACH ROW
    BEGIN
       INSERT INTO TraspasoAggr VALUES
-          (NEW.orden, NEW.cuentaID, NEW.fecha, NEW.participaciones, NEW.reintegro, NULL, NULL, NULL, NEW.comentario);
+          (NEW.orden, NEW.cuentaID, NEW.fecha, NEW.suscripciones, NEW.participaciones, NEW.reintegro, NULL, NULL, NULL, NEW.comentario);
    END;
 
 -- Permite manejar los traspasos usando como origen
@@ -504,6 +512,7 @@ CREATE VIEW IF NOT EXISTS TraspasoAggr AS
    SELECT T.orden,
           S.cuentaID as origen,
           T.fecha_v,
+          COUNT(*) AS suscripciones,  -- Ver VentaAggr
           SUM(T.part_v) AS part_v,
           SUM(T.monto) AS monto,
           T.destino,
@@ -517,8 +526,46 @@ CREATE VIEW IF NOT EXISTS TraspasoAggr AS
 
 -- Convierte el traspaso agregado (cuyo origen es una cuenta).
 -- en un conjunto de traspasos simples (cuyos orígenes son suscripciones)
-CREATE TRIGGER IF NOT EXISTS TraspasoAggr_BI INSTEAD OF INSERT ON TraspasoAggr
+CREATE TRIGGER IF NOT EXISTS TraspasoAggr_II1 INSTEAD OF INSERT ON TraspasoAggr
 FOR EACH ROW
+   WHEN NEW.suscripciones IS NOT NULL AND NEW.part_v IS NOT NULL
+   BEGIN
+      SELECT RAISE(FAIL, "Indique o número de suscripciones o número de participaciones");
+   END;
+
+CREATE TRIGGER IF NOT EXISTS TraspasoAggr_II2 INSTEAD OF INSERT ON TraspasoAggr
+FOR EACH ROW
+   WHEN NEW.suscripciones IS NOT NULL AND NEW.part_v IS NULL
+   BEGIN
+      SELECT RAISE(FAIL, "Demasiadas suscripciones")
+      FROM Suscripcion WHERE cuentaID = NEW.origen AND participaciones > 0
+      GROUP BY cuentaID
+      HAVING COUNT(*) < NEW.suscripciones;
+
+      -- Debemos generar el número de orden
+      INSERT INTO tOrdenVenta VALUES (NEW.orden, NEW.fecha_v, NEW.comentario);
+
+      INSERT INTO Traspaso
+      WITH SuscripcionVendida AS
+         (SELECT * FROM Suscripcion 
+         WHERE cuentaID = NEW.origen AND participaciones > 0
+         LIMIT NEW.suscripciones)
+      SELECT NULL,
+             last_insert_rowid(),
+             suscripcionID,
+             NEW.fecha_v,
+             participaciones,
+             NEW.monto*participaciones/SUM(participaciones) OVER (),
+             NEW.destino,
+             NEW.fecha_c,
+             NEW.part_c*participaciones/SUM(participaciones) OVER (),
+             NEW.comentario
+      FROM SuscripcionVendida;
+   END;
+
+CREATE TRIGGER IF NOT EXISTS TraspasoAggr_II3 INSTEAD OF INSERT ON TraspasoAggr
+FOR EACH ROW
+   WHEN NEW.suscripciones IS NULL AND NEW.part_v IS NOT NULL
    BEGIN
       SELECT RAISE(FAIL, "Demasiadas participaciones")
       FROM Suscripcion WHERE cuentaID = NEW.origen
@@ -563,8 +610,6 @@ FOR EACH ROW
       SELECT NULL, *, NEW.destino, NEW.fecha_c, NEW.part_c*vendidas/SUM(vendidas) OVER (), NEW.comentario
       FROM NuevaOrden, VentaDesagregada;
    END;
-
-
 -- Genera la evolución temporal de al rentabilidad de cada suscripción
 -- (las que se listan en la vista Plusvalía) en periodos de "meses"
 -- o "semanas" entre dos fechas de tiempo. No especificar la fecha inicial
