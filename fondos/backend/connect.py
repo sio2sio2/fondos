@@ -379,7 +379,7 @@ class SQLiteConector(ConnectorWithCursor):
         with self.log:
             self.execute("INSERT INTO TraspasoAggr VALUES "
                          "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", reg)
-        logger.info(f'Registrado traspaso de {reg[1]} a {reg[5]}')
+        logger.info(f'Registrado traspaso de {reg[1]} a {reg[6]}')
         return reg[0]
 
     @cursor

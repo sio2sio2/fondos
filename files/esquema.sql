@@ -528,15 +528,11 @@ CREATE VIEW IF NOT EXISTS TraspasoAggr AS
 -- en un conjunto de traspasos simples (cuyos orígenes son suscripciones)
 CREATE TRIGGER IF NOT EXISTS TraspasoAggr_II1 INSTEAD OF INSERT ON TraspasoAggr
 FOR EACH ROW
-   WHEN NEW.suscripciones IS NOT NULL AND NEW.part_v IS NOT NULL
+   WHEN NEW.suscripciones IS NOT NULL
    BEGIN
-      SELECT RAISE(FAIL, "Indique o número de suscripciones o número de participaciones");
-   END;
+      SELECT RAISE(FAIL, "No puede especificar a la vez número de suscripciones y de participaciones")
+      WHERE NEW.part_v IS NOT NULL;
 
-CREATE TRIGGER IF NOT EXISTS TraspasoAggr_II2 INSTEAD OF INSERT ON TraspasoAggr
-FOR EACH ROW
-   WHEN NEW.suscripciones IS NOT NULL AND NEW.part_v IS NULL
-   BEGIN
       SELECT RAISE(FAIL, "Demasiadas suscripciones")
       FROM Suscripcion WHERE cuentaID = NEW.origen AND participaciones > 0
       GROUP BY cuentaID
@@ -563,9 +559,9 @@ FOR EACH ROW
       FROM SuscripcionVendida;
    END;
 
-CREATE TRIGGER IF NOT EXISTS TraspasoAggr_II3 INSTEAD OF INSERT ON TraspasoAggr
+CREATE TRIGGER IF NOT EXISTS TraspasoAggr_II2 INSTEAD OF INSERT ON TraspasoAggr
 FOR EACH ROW
-   WHEN NEW.suscripciones IS NULL AND NEW.part_v IS NOT NULL
+   WHEN NEW.suscripciones IS NULL
    BEGIN
       SELECT RAISE(FAIL, "Demasiadas participaciones")
       FROM Suscripcion WHERE cuentaID = NEW.origen
@@ -610,7 +606,9 @@ FOR EACH ROW
       SELECT NULL, *, NEW.destino, NEW.fecha_c, NEW.part_c*vendidas/SUM(vendidas) OVER (), NEW.comentario
       FROM NuevaOrden, VentaDesagregada;
    END;
--- Genera la evolución temporal de al rentabilidad de cada suscripción
+
+
+-- Genera la evolución temporal de la rentabilidad de cada suscripción
 -- (las que se listan en la vista Plusvalía) en periodos de "meses"
 -- o "semanas" entre dos fechas de tiempo. No especificar la fecha inicial
 -- implica desde que se hizo la primera inversión; y no especificar
