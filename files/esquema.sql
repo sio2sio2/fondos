@@ -362,7 +362,9 @@ CREATE VIEW IF NOT EXISTS Cartera AS
    SELECT isin,
           cuentaID,
           comercializadora,
-          NULL AS anterior,   -- No puede saberse, puesto que no se usa Historial.
+          -- Como no se analiza la evolución, no se puede saber
+          -- cuál es la ganancia o pérdida anterior a la inversión actual.
+          0 as anterior,
           capital,
           participaciones,
           ROUND(vl*participaciones/SUM(vl*participaciones) OVER(), 4) AS peso,

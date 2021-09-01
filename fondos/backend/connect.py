@@ -442,6 +442,11 @@ class SQLiteConector(ConnectorWithCursor):
         """
         params.extend((fecha_i, fecha_f))
 
+        # TODO: Eliminar cuando se solucione el problema con CarteraHistorica
+        if (fecha_i, fecha_f) == (None, None):
+            sql = "SELECT * FROM Cartera"
+            params.clear()
+
         if fondo:
             cond.append("isin = ?")
             params.append(fondo)
