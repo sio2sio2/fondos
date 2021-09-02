@@ -825,6 +825,22 @@ CREATE VIEW IF NOT EXISTS CarteraHistorica AS
    FROM Prev JOIN tCuenta USING(cuentaID)
    ORDER BY isin, comercializadora;
 
+
+-- Tabla para guardar los parámetros necesarios
+-- para las vistas Evolucion y CarteraHistorica,
+-- puesto que desde abril de 2021 no vale utilizar una CTE:
+--
+--  WITH Tiempo(inicial, final) AS (SELECT '2020-05-01', NULL),
+--  SELECT * FROM CarteraHistorica;
+--
+CREATE TABLE IF NOT EXISTS Tiempo (
+   inicial  DATE,
+   final    DATE,
+   periodo  CHAR(7) DEFAULT 'semanas'
+);
+INSERT OR REPLACE INTO Tiempo(inicial, final) VALUES (NULL, NULL);
+
+
 -- Últimas Variaciones en las cotizaciones de los fondos activos:
 --
 --    SELECT * FROM VarCotizacion

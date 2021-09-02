@@ -435,16 +435,10 @@ class SQLiteConector(ConnectorWithCursor):
         cond = []
         params: List[Any] = []
 
-        sql = """
-            WITH Tiempo(inicial, final) AS (SELECT ?, ?)
-            SELECT * FROM CarteraHistorica
-        """
-        params.extend((fecha_i, fecha_f))
+        self.execute("UPDATE Tiempo SET inicial = ?, final = ?",
+                     (fecha_i, fecha_f))
 
-        # TODO: Eliminar cuando se solucione el problema con CarteraHistorica
-        if (fecha_i, fecha_f) == (None, None):
-            sql = "SELECT * FROM Cartera"
-            params.clear()
+        sql = """SELECT * FROM CarteraHistorica"""
 
         if fondo:
             cond.append("isin = ?")
@@ -595,10 +589,12 @@ class SQLiteConector(ConnectorWithCursor):
             aún podrán obtenerse los valores para el eje de abcisas.
         """
 
-        sql = """WITH Tiempo(inicial, final, periodo) AS (SELECT ?, ?, ?)
-                 SELECT * FROM Evolucion"""
+        self.execute("UPDATE Tiempo SET inicial = ?, final = ?, periodo = ?",
+                     (fi, ff, periodo))
 
-        params, cond = [fi, ff, periodo], []
+        sql = """SELECT * FROM Evolucion"""
+
+        params, cond = [], []
 
         ret = True
 
