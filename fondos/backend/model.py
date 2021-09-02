@@ -452,72 +452,22 @@ class Cartera(Register):
 
 class Historial(Register):
     """Historial de una inversion"""
-    _fields = "desinversion suscripcionID cuentaID orden fecha_i " \
-              "fecha fecha_v coste participaciones reintegro"
+    _fields = "desinversion suscripcionID origenID cuentaID orden fecha_i " \
+              "fecha fecha_v coste capital vl participaciones reintegro"
 
     _cuenta: Optional[Cuenta]
     _suscripcion: Optional[Suscripcion]
+    _origen: Optional[origen]
 
     @classmethod
     def get(cls,
             orden: int = None,
-            inversion: int = None,
+            desinversion: int = None,
+            terminal: bool = False,
             rembolso: bool = None) -> Iterator[Tuple]:
 
-        return cls.db.get_historial(orden=orden, inversion=inversion,
-                                    rembolso=rembolso)
-
-    @property
-    def cuenta(self):
-        try:
-            return self._cuenta
-        except AttributeError:
-            self._cuenta = next(self.db.Cuenta.get(num=self.cuentaID), None)
-
-        return self._cuenta
-
-    @property
-    def suscripcion(self) -> Optional[Suscripcion]:
-        try:
-            return self._suscripcion
-        except AttributeError:
-            suscr = self.db.Suscripcion
-            self._suscripcion = next(suscr.get(id=self.suscripcionID), None)
-
-            return self._suscripcion
-
-    @property
-    def rembolsada(self) -> bool:
-        """Indica si la inversión ya se rembolsó"""
-        return self.orden != 0
-
-
-class Plusvalia(Register):
-    """Modela la información fiscal"""
-    _fields = ("desinversion fecha_i capital origenID fecha_v orden "
-               "suscripcionID cuentaID participaciones rembolso")
-
-    _origem: Suscripcion
-    _suscripcion: Suscripcion
-    _cuenta: Cuenta
-
-    @classmethod
-    def get(cls, *,
-            origen: Union[int, Suscripcion] = None,
-            orden: int = None,
-            cuenta: Union[str, Cuenta] = None) -> Iterator[Plusvalia]:
-        """Obtiene las plusvalías de en una inversión.
-
-           :param origen: Identificador de la suscripción original. Si se
-                especifica no se atiende a los dos restantes parámetros.
-           :param orden: Orden de venta. Si es 0, se obtienen previsibles
-                plusvalías de participaciones aún no vendidas.
-           :param cuenta: Cuenta de la que se venden participaciones.
-        """
-        origen = getattr(origen, "id", origen)
-        cuenta = getattr(cuenta, "id", cuenta)
-
-        return cls.db.get_plusvalia(origen=origen, orden=orden, cuenta=cuenta)
+        return cls.db.get_historial(orden=orden, desinversion=desinversion,
+                                    terminal=terminal, rembolso=rembolso)
 
     @property
     def cuenta(self):
@@ -543,15 +493,28 @@ class Plusvalia(Register):
         try:
             return self._origen
         except AttributeError:
-            suscr = self.db.Suscripcion
+            origen = self.db.Suscripcion
             self._origen = next(suscr.get(id=self.origenID), None)
 
             return self._origen
 
     @property
-    def rembolsada(self):
-        """Indica si la plusvalía es real, o sea, si ya se desinvirtió"""
-        return orden != 0
+    def rembolsada(self) -> bool:
+        """Indica si la inversión ya se rembolsó"""
+        return self.orden != 0
+
+    @property
+    def terminal(self) -> bool:
+        """Indica si la línea de historial representa una suscripción terminal"""
+        return self.desinversion == self.suscripcionID
+
+    @property
+    def plusvalia(self) -> Optional[float]:
+        """Ganacia o pérdida acomulada del registro del historial"""
+        try:
+            return self.reintegro - self.capital
+        except TypeError:  # reintegro es nulo.
+            return None
 
 
 class UltimasCotizaciones(Register):

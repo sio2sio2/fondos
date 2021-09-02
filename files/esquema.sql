@@ -452,31 +452,21 @@ CREATE VIEW IF NOT EXISTS Historial AS
          JOIN tSuscripcion S USING(suscripcionID)
          JOIN Origen O ON O.origen = V.ventaID 
    )
-   SELECT desinversion, suscripcionID, cuentaID, orden, fecha_i, fecha, fecha_v, coste, vl, participaciones, reintegro
+   SELECT desinversion,
+          suscripcionID,
+          first_value(suscripcionID) OVER (PARTITION BY desinversion,orden ORDER BY fecha) AS origen,
+          cuentaID,
+          orden,
+          fecha_i,
+          fecha,
+          fecha_v,
+          coste,
+          first_value(coste) OVER (PARTITION BY desinversion,orden ORDER BY fecha) AS capital,
+          vl,
+          participaciones,
+          reintegro
    FROM Origen
    ORDER BY orden, desinversion, fecha;
-
--- 
--- PLUSVALÍA.
--- Confronta la suscripción inicial con la suscripción o venta terminal.
--- Sirve para hacer cálculos sobre la plusvalía
---
-CREATE VIEW IF NOT EXISTS Plusvalia AS
-   SELECT H1.desinversion,
-          H1.fecha AS fecha_i,   -- Fecha de inversión.
-          H1.coste AS capital,
-          H1.suscripcionID as origen, -- Suscripción origen de la inversión.
-          H2.fecha_v, -- Fecha de venta (de la última cotización registrada, si no se ha vendido aún).
-          H2.orden,
-          H2.suscripcionID,
-          H2.cuentaID,
-          H2.participaciones,
-          H2.reintegro AS rembolso  -- Monto de la venta o estimación en caso de suscripción terminal.
-   FROM Historial H1
-      JOIN Historial H2 USING(desinversion, orden)
-   WHERE H1.fecha_i = H1.fecha      -- Suscripción inicial
-      AND H2.desinversion = H2.suscripcionID  -- Suscripción/Venta terminal
-   ORDER BY H2.cuentaID, H1.fecha;
 
 
 -- Permite manejar las ventas usando como origen

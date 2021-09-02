@@ -471,6 +471,7 @@ class SQLiteConector(ConnectorWithCursor):
     def get_historial(self, *,
                       orden: int = None,
                       desinversion: int = None,
+                      terminal: bool = False,
                       rembolso: bool = None) -> Iterator[Tuple]:
         """Obtiene el historial completo de cada inversión terminal.
            Por inversión terminal se entiende una inversión de la que se
@@ -487,6 +488,8 @@ class SQLiteConector(ConnectorWithCursor):
                 que aún son suscripciones.
            :param desinversion: Número de la suscripción de la que se
                 desinvirtió dinero o se predente desinvertir.
+           :param terminal: Si ``True``, se obtienen sólo las líneas de historial
+                terminales; si ``False``, se obtienen todas.
            :param rembolso: Si ``True``, se obtienen ventas terminales; si
                 ``False``, suscripciones terminales.
         """
@@ -509,6 +512,9 @@ class SQLiteConector(ConnectorWithCursor):
                 cond.append("orden <> 0")
             else:
                 cond.append("orden = 0")
+
+        if terminal:
+            cond.append("desinversion = suscripcionID")
 
         scond = f'WHERE {" AND ".join(cond)}' if cond else ""
 

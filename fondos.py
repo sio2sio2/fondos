@@ -13,7 +13,7 @@ from fondos.utils.backend.errors import Error
 from fondos.utils.iniargparse import IniArgumentParser
 from argparse import Action
 from fondos.backend import SQLiteConector, Fondo, Cuenta, Cotizacion, \
-        Suscripcion, Venta, Cartera, Historial, Traspaso, Plusvalia, \
+        Suscripcion, Venta, Cartera, Historial, Traspaso, \
         Evolucion, UltimasCotizaciones
 import matplotlib.pyplot as plt
 
@@ -467,43 +467,44 @@ class Interfaz:
         db = config.db
         with db.session:
             inv, totales = [], {}
-            for p in db.Plusvalia.get():
+            registros = sorted(db.Historial.get(terminal=True),
+                               key=lambda r: (r.cuentaID, r.fecha_i))
+            for h in registros:
 
                 try:
-                    plusvalia = p.rembolso - p.capital
+                    plusvalia = h.plusvalia
                 except TypeError:
                     logger.warning('No puede calcularse el rembolso de '
                                    f'{p.suscripcion.id}')
                     plusvalia = None
-
-                if self.color and plusvalia is not None:
-                    color_ganancia = "+" if plusvalia > 0 else "-"
-                else:
                     color_ganancia = False
+                else:
+                    if self.color:
+                        color_ganancia = "+" if plusvalia > 0 else "-"
 
                 dias = None
 
-                if p.fecha_v:
-                    totales.setdefault(p.fecha_v.year, [0, 0, 0])
-                    totales[p.fecha_v.year][0] += p.capital
-                    totales[p.fecha_v.year][1] += p.rembolso
-                    totales[p.fecha_v.year][2] += plusvalia
-                    dias = (p.fecha_v - p.fecha_i).days
+                if h.fecha_v:
+                    totales.setdefault(h.fecha_v.year, [0, 0, 0])
+                    totales[h.fecha_v.year][0] += h.capital
+                    totales[h.fecha_v.year][1] += h.reintegro
+                    totales[h.fecha_v.year][2] += plusvalia
+                    dias = (h.fecha_v - h.fecha_i).days
 
-                inv.append((p.orden == 0,  # True si no se ha vendido la inv.
-                            [(f'{p.desinversion}/{p.orden}', False),
-                             (p.suscripcion.cuenta.fondo.alias, False),
-                             (p.suscripcion.cuenta.comercializadora, False),
-                             (p.capital, False),
-                             (p.fecha_i, False),
-                             (p.fecha_v, False),
-                             (p.participaciones, False),
-                             (p.rembolso, color_ganancia),
+                inv.append((h.orden == 0,  # True si no se ha vendido la inv.
+                            [(f'{h.desinversion}/{h.orden}', False),
+                             (h.suscripcion.cuenta.fondo.alias, False),
+                             (h.suscripcion.cuenta.comercializadora, False),
+                             (h.capital, False),
+                             (h.fecha_i, False),
+                             (h.fecha_v, False),
+                             (h.participaciones, False),
+                             (h.reintegro, color_ganancia),
                              (plusvalia, color_ganancia),
                              (plusvalia and
-                                plusvalia/p.capital*100, color_ganancia),
+                                plusvalia/h.capital*100, color_ganancia),
                              (plusvalia and dias and
-                                ((1+plusvalia/p.capital)**(365/dias) - 1)*100,
+                                ((1+plusvalia/h.capital)**(365/dias) - 1)*100,
                                 color_ganancia)]))
 
         for year, (capital, remb, plus) in totales.items():
@@ -674,7 +675,7 @@ def main():
                                     dump=registrar(),
                                     schema=agrega_path("SQL/esquema.sql"))
     db.attach((Fondo, Cuenta, Cotizacion, Suscripcion, UltimasCotizaciones,
-               Venta, Cartera, Traspaso, Historial, Plusvalia, Evolucion))
+               Venta, Cartera, Traspaso, Historial, Evolucion))
 
     if config.fondo:
         with db.session:
