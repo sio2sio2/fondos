@@ -436,8 +436,7 @@ class SQLiteConector(ConnectorWithCursor):
         params: List[Any] = []
 
         sql = """
-            WITH FechaInicial AS (SELECT ?),
-                 FechaFinal AS (SELECT ?)
+            WITH Tiempo(inicial, final) AS (SELECT ?, ?)
             SELECT * FROM CarteraHistorica
         """
         params.extend((fecha_i, fecha_f))
@@ -596,9 +595,7 @@ class SQLiteConector(ConnectorWithCursor):
             aún podrán obtenerse los valores para el eje de abcisas.
         """
 
-        sql = """WITH FechaInicial AS (SELECT ?),
-                      FechaFInal   AS (SELECT ?),
-                      Periodo      AS (SELECT ?)
+        sql = """WITH Tiempo(inicial, final, periodo) AS (SELECT ?, ?, ?)
                  SELECT * FROM Evolucion"""
 
         params, cond = [fi, ff, periodo], []

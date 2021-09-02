@@ -607,11 +607,10 @@ FOR EACH ROW
 -- la final, hasta el último día registrado. La salisd es útil para generar un
 -- gráfico con la evolución de las rentabilidades.
 --
--- Para usar la vista deben definirse Periodo, FechaInicial y FechaFinal:
+-- Para usar la vista deben definirse las fechas iniciales,
+-- finales y el periodo.
 --
--- WITH FechaInicial AS (SELECT NULL), -- Desde la primera inversión.
---      FechaFinal   AS (SELECT NULL), -- Hasta hoy mismo.
---      Periodo      AS (SELECT 'semanas')  -- Valores semanales.
+-- WITH Tiempo(inicial, final, periodo) AS (SELECT NULL, NULL, 'semanas'),
 -- SELECT * FROM Evolucion;
 --
 CREATE VIEW IF NOT EXISTS Evolucion AS
@@ -623,13 +622,13 @@ CREATE VIEW IF NOT EXISTS Evolucion AS
    WITH RECURSIVE
       Comienzo(fecha) AS (
          SELECT CASE
-                  WHEN (SELECT * FROM FechaInicial) >= (SELECT MIN(fecha) FROM tSuscripcion) THEN (SELECT * FROM FechaInicial)
+                  WHEN (SELECT inicial FROM Tiempo) >= (SELECT MIN(fecha) FROM tSuscripcion) THEN (SELECT inicial FROM Tiempo)
                   ELSE (SELECT MIN(fecha) FROM tSuscripcion)
                 END
       ),
       Fin(fecha) AS (
          SELECT CASE
-                  WHEN (SELECT * FROM FechaFinal) <= DATE("now") THEN (SELECT * FROM FechaFinal)
+                  WHEN (SELECT final FROM Tiempo) <= DATE("now") THEN (SELECT final FROM Tiempo)
                   ELSE DATE("now")
                 END
       ),
@@ -637,7 +636,7 @@ CREATE VIEW IF NOT EXISTS Evolucion AS
       RangoInicial(periodo, delta, inf, sup) AS (
          SELECT P.*, DATE(S.fecha, "-" || P.delta), S.fecha
          FROM (SELECT fecha FROM Comienzo) S, Periodos P
-         WHERE P.periodo = (SELECT * FROM Periodo)
+         WHERE P.periodo = (SELECT periodo FROM Tiempo)
       ),
       Secuencia AS (
          SELECT * FROM RangoInicial
@@ -656,7 +655,7 @@ CREATE VIEW IF NOT EXISTS Evolucion AS
          -- así que para subsanarlo hacemos esta consulta. Ahora bien,
          -- la operación inicial es relevante sólo si su fecha no es
          -- anterior a la FechaInicial.
-         SELECT (SELECT * FROM Periodo) AS periodo,
+         SELECT (SELECT periodo FROM Tiempo) AS periodo,
                 H.desinversion,
                 H.suscripcionID,
                 H.orden,
@@ -724,10 +723,9 @@ CREATE VIEW IF NOT EXISTS Evolucion AS
 --  en vez de en la última disponible.
 --
 --  Para usar la vista, forzosamente, hay que indicar cuáles son las fechas
---  mediante CTE (dejese a NULL para no indicarla):
+--  mediante CTE (déjese a NULL para no indicarla):
 --
---  WITH FechaInicial AS (SELECT '2020-05-01'),
---       FechaFInal   AS (SELECT NULL)
+--  WITH Tiempo(inicial, final) AS (SELECT '2020-05-01', NULL),
 --  SELECT * FROM CarteraHistorica;
 --
 --  Obviamente dejar a NULL ambas fechas, equivale consultar Cartera)
@@ -747,7 +745,7 @@ CREATE VIEW IF NOT EXISTS CarteraHistorica AS
                  JOIN
               tCuenta T2 ON T2.cuentaID = S2.cuentaID
          WHERE T1.isin = T2.isin
-            AND S2.fecha >= COALESCE((SELECT * FROM FechaInicial), '')
+            AND S2.fecha >= COALESCE((SELECT inicial FROM Tiempo), '')
       ),
       Progreso AS (
          SELECT H.desinversion,
@@ -764,8 +762,8 @@ CREATE VIEW IF NOT EXISTS CarteraHistorica AS
             JOIN tCuenta C USING(cuentaID)
             LEFT JOIN tCotizacion Co USING(isin)
          WHERE H.fecha <= Co.fecha AND H.fecha_v >= Co.fecha
-            AND Co.fecha >= COALESCE((SELECT * FROM FechaInicial), '')
-            AND Co.fecha <= COALESCE((SELECT * FROM FechaFinal), '9999-99-99')
+            AND Co.fecha >= COALESCE((SELECT inicial FROM Tiempo), '')
+            AND Co.fecha <= COALESCE((SELECT final FROM Tiempo), '9999-99-99')
       ),
       InversionOriginal AS (
          SELECT * FROM Progreso
@@ -791,7 +789,7 @@ CREATE VIEW IF NOT EXISTS CarteraHistorica AS
                   CASE 
                      -- Si la compra se realizó dentro del periodo (FechaInicial, FechaFinal)
                      -- entonces usamos el coste de compra.
-                     WHEN P1.fecha_c < (SELECT * FROM FechaInicial) THEN P1.participaciones*P1.vl
+                     WHEN P1.fecha_c < (SELECT inicial FROM Tiempo) THEN P1.participaciones*P1.vl
                      ELSE P1.coste
                   END
                 ) AS inicial,  -- Valoración a FechaInicial.
@@ -799,7 +797,7 @@ CREATE VIEW IF NOT EXISTS CarteraHistorica AS
                   CASE
                      -- Si la inversión actual se hizo antes de FechaInicial
                      -- se debe tomar la valoración a FechaInicial.
-                     WHEN P3.fecha_c < (SELECT * FROM FechaInicial) THEN P1.participaciones*P1.vl
+                     WHEN P3.fecha_c < (SELECT inicial FROM Tiempo) THEN P1.participaciones*P1.vl
                      ELSE P3.coste
                   END
                ) AS capital,  -- Coste de compra de las participaciones actuales.
