@@ -237,7 +237,12 @@ def parse_line(line, tipo, sep="|"):
 
     def rembolso(cuenta, fecha, participaciones,
                  reintegro=None, comentario=None):
-        return (None, cuenta, fecha, participaciones, reintegro, comentario)
+        if isinstance(participaciones, int):
+            suscripciones, participaciones = participaciones, None
+        else:
+            suscripciones = None
+        return (None, cuenta, fecha, suscripciones,
+                participaciones, reintegro, comentario)
 
     def traspaso(cuenta, fecha, destino, fecha_c=None, participaciones=None,
                  rembolso=None, part_c=None, comentario=None):
@@ -467,7 +472,8 @@ class Interfaz:
         db = config.db
         with db.session:
             inv, totales = [], {}
-            registros = sorted(db.Historial.get(terminal=True),
+            registros = sorted(db.Historial.get(terminal=True,
+                                                rembolso = False),
                                key=lambda r: (r.cuentaID, r.fecha_i))
             for h in registros:
 
@@ -529,7 +535,7 @@ class Interfaz:
         self.crear_tabla(["ID", "Fondo", "Banco", "Inversión", "F. compra",
                           "F: venta", "Partic.", "Rembolso", "Plusvalia",
                           "Plu (%)", "TAE (%)"],
-                         [4, 13, 9, 10, 10, 10, 8, 10, 10, 7, 10], inv)
+                         [6, 13, 9, 10, 10, 10, 8, 10, 10, 7, 8], inv)
 
     def mostrar_evolucion(self, arg=None):
         import locale

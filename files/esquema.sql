@@ -761,7 +761,8 @@ CREATE VIEW IF NOT EXISTS CarteraHistorica AS
          FROM Historial H
             JOIN tCuenta C USING(cuentaID)
             LEFT JOIN tCotizacion Co USING(isin)
-         WHERE H.fecha <= Co.fecha AND H.fecha_v >= Co.fecha
+         WHERE orden = 0 -- Solo consideramos inversiones que no se han vendido.
+            AND H.fecha <= Co.fecha AND H.fecha_v >= Co.fecha
             AND Co.fecha >= COALESCE((SELECT inicial FROM Tiempo), '')
             AND Co.fecha <= COALESCE((SELECT final FROM Tiempo), '9999-99-99')
       ),

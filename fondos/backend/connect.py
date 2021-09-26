@@ -321,7 +321,7 @@ class SQLiteConector(ConnectorWithCursor):
         """
         reg = tuple(reg)
         with self.log:
-            self.execute("INSERT INTO VentaAggr VALUES (?, ?, ?, ?, ?, ?)",
+            self.execute("INSERT INTO VentaAggr VALUES (?, ?, ?, ?, ?, ?, ?)",
                          reg)
         logger.info(f"Registra la venta con orden {reg[0]}")
         return reg[0]
@@ -511,7 +511,7 @@ class SQLiteConector(ConnectorWithCursor):
 
         scond = f'WHERE {" AND ".join(cond)}' if cond else ""
 
-        self.execute(f'{sql} {scond}')
+        self.execute(f'{sql} {scond}', params)
         logger.debug('Extraídos los historiales requeridos')
         yield from self
 
