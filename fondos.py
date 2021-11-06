@@ -82,7 +82,9 @@ def parse_args():
                         "que, de primeras, suelen proporcionar las "
                         "comercializadoras")
     vgroup.add_argument("-p", "--plusvalia", action="store_true",
-                        help="Muestra las plusvalias obtenidas")
+                        help="Muestra las plusvalias calculadas")
+    vgroup.add_argument("-P", "--plusvalia-fiscal", action="store_true",
+                        help="Muestra las plusvalias pasadas")
     vgroup.add_argument("-g", "--grafico", action="store_true",
                         help="Muestra gráficamente la evolución de las "
                         "inversiones")
@@ -468,12 +470,12 @@ class Interfaz:
                           "Ganancia", "%Ganan"],
                          [15, 12, 1, 9, 9, 9, 7, 5, 10, 7, 9, 6], inv)
 
-    def mostrar_plusvalias(self):
+    def mostrar_plusvalias(self, rembolso=None):
         db = config.db
         with db.session:
             inv, totales = [], {}
             registros = sorted(db.Historial.get(terminal=True,
-                                                rembolso = False),
+                                                rembolso = rembolso),
                                key=lambda r: (r.cuentaID, r.fecha_i))
             for h in registros:
 
@@ -767,7 +769,9 @@ def main():
     if config.inversiones:
         interfaz.mostrar_cartera()
     elif config.plusvalia:
-        interfaz.mostrar_plusvalias()
+        interfaz.mostrar_plusvalias(False)
+    elif config.plusvalia_fiscal:
+        interfaz.mostrar_plusvalias(True)
     elif config.grafico:
         interfaz.mostrar_evolucion()
     elif config.history:
