@@ -481,7 +481,7 @@ CREATE VIEW IF NOT EXISTS VentaAggr AS
           -- el campo valdrá 2.
           -- Su utilidad está en la inserción de registros. Por ejemplo,
           -- si se proporciona un 2, esto significa que se venden las participaciones
-          -- correspondientes a las dos suscripciones al fondo más antiguas.
+          -- correspondientes a las dos más antiguas suscripciones al fondo.
           COUNT(*) AS suscripciones,
           SUM(V.participaciones) AS participaciones,
           SUM(V.reintegro) AS reintegro,
@@ -574,7 +574,8 @@ FOR EACH ROW
                       S.cuentaID,
                       S.fecha_i,
                       Sp.participaciones AS part,
-                      SUM(Sp.participaciones) OVER (PARTITION BY S.cuentaID ORDER BY S.fecha_i) AS partacc
+                      SUM(Sp.participaciones) OVER (PARTITION BY S.cuentaID ORDER BY S.fecha_i) AS partacc,
+                      Sp.participaciones / SUM(Sp.participaciones) OVER (PARTITION BY S.cuentaID) AS porcpart
                FROM tSuscripcion S
                       JOIN Suscripcion Sp USING(suscripcionID)
                WHERE Sp.participaciones > 0
@@ -587,7 +588,7 @@ FOR EACH ROW
                            WHEN ROUND(partacc - part - NEW.part_v, 5) > 0 THEN 0
                            ELSE ROUND(NEW.part_v - partacc + part, 5)
                       END AS vendidas,
-                      CASE WHEN NEW.part_v IS NULL THEN NEW.monto*part/NEW.part_v
+                      CASE WHEN NEW.part_v IS NULL THEN NEW.monto*porcpart
                            WHEN ROUND(NEW.part_v - partacc, 5) >= 0 THEN NEW.monto*part/NEW.part_v
                            WHEN ROUND(partacc - part - NEW.part_v, 5) > 0 THEN 0
                            ELSE ROUND(NEW.monto*(NEW.part_v - partacc + part)/NEW.part_v, 2)
